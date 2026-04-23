@@ -1,0 +1,30 @@
+name: docs-ci
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "scripts/validate_docs.py"
+      - ".github/workflows/docs-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "scripts/validate_docs.py"
+
+jobs:
+  validate-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pyyaml==6.*
+
+      - name: Validate artifacts
+        run: python scripts/validate_docs.py
