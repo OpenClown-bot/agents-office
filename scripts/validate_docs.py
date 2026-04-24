@@ -28,6 +28,12 @@ except ImportError:
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DOCS_ROOT = REPO_ROOT / "docs"
 
+# Directories under docs/ that are NOT typed artifact directories (no
+# frontmatter required). Files inside these are free-form meta docs.
+FREEFORM_DIRS = {"prompts"}
+# Free-form top-level docs/*.md files (non-artifact reference material).
+FREEFORM_TOPLEVEL = {"QA-PLAYBOOK.md", "OPERATIONAL-PLAYBOOK.md"}
+
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 REF_RE = re.compile(r"\b(PRD|ARCH|ADR|TKT)-(\d{3,})@(\d+\.\d+\.\d+)")
 
@@ -191,6 +197,13 @@ def main() -> int:
             continue
         # skip README files at any level of docs/
         if md.name.lower() == "readme.md":
+            continue
+        rel = md.relative_to(DOCS_ROOT)
+        # skip free-form directories (prompts, etc.)
+        if rel.parts and rel.parts[0] in FREEFORM_DIRS:
+            continue
+        # skip free-form top-level docs (playbooks, etc.)
+        if len(rel.parts) == 1 and rel.name in FREEFORM_TOPLEVEL:
             continue
         try:
             art = load_artifact(md)
