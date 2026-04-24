@@ -2,7 +2,7 @@
 id: PRD-001
 title: "SMM Autopilot MVP"
 version: 0.1.0
-status: draft            # draft | in_review | approved | superseded
+status: approved         # draft | in_review | approved | superseded
 owner: "@yourmomsenpai"
 author_model: "claude-opus-4.7"
 created: 2026-04-24
@@ -159,9 +159,9 @@ None. All clarifying questions were resolved across two batched rounds with the 
 ---
 
 ## Handoff Checklist (author ticks all before setting status to `approved`)
-- [ ] All sections filled; no TODO / TBD
-- [ ] Non-Goals explicitly listed (≥1)
-- [ ] Each User Story has testable Acceptance Criteria
-- [ ] KPIs are measurable (not "improve" — numeric target and window)
-- [ ] Technical Envelope contains concrete numbers
-- [ ] Open Questions are closed or explicitly escalated to PO
+- [x] All sections filled; no TODO / TBD
+- [x] Non-Goals explicitly listed (≥1)
+- [x] Each User Story has testable Acceptance Criteria
+- [x] KPIs are measurable (not "improve" — numeric target and window)
+- [x] Technical Envelope contains concrete numbers
+- [x] Open Questions are closed or explicitly escalated to PO
