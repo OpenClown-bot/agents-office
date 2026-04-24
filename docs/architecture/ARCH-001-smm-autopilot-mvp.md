@@ -260,6 +260,15 @@ PublishLog:
   event: enum(attempt, success, failure, retry)
   detail: text
   timestamp: datetime
+
+Metrics:
+  name: text
+  period: enum(daily, monthly, total)
+  value: integer (default 0)
+  updated_at: datetime
+  primary_key: (name, period)
+  # Each counter name has up to three rows (one per period bucket).
+  # Rows are upserted (INSERT … ON CONFLICT … DO UPDATE), not appended.
 ```
 
 ## 6. External Interfaces
@@ -299,7 +308,18 @@ PublishLog:
   - Destination: stdout (captured by Docker logging driver → `/var/log/smm-autopilot/`).
   - Retention: 7 days on disk via Docker `max-size: 50m, max-file: 5` log rotation.
 - **Metrics:**
-  - Tracked in SQLite `metrics` table (counters): `items_ingested`, `items_classified`, `drafts_generated`, `drafts_approved`, `drafts_rejected`, `posts_published`, `posts_failed`, `llm_calls_total`, `llm_tokens_total`, `llm_errors`.
+  - Tracked in the `Metrics` table defined in §5 (composite PK `(name, period)`). Each counter name is stored with up to three period buckets (`daily`, `monthly`, `total`), upserted on each event.
+  - Counter rows (seeded at DB init):
+    - `items_ingested` — incremented by SourceIngester on each new RawItem.
+    - `items_classified` — incremented by Classifier on each ClassifiedItem.
+    - `drafts_generated` — incremented by DraftGenerator on each Draft.
+    - `drafts_approved` — incremented by ApprovalBot on PO approve action.
+    - `drafts_rejected` — incremented by ApprovalBot on PO reject action.
+    - `posts_published` — incremented by ChannelPublishers on successful publish.
+    - `posts_failed` — incremented by ChannelPublishers on permanent publish failure.
+    - `llm_calls_total` — incremented by LLMClient on each API call (success or failure).
+    - `llm_tokens_total` — incremented by LLMClient with the token count returned by the provider.
+    - `llm_errors` — incremented by LLMClient on each provider error (timeout, rate-limit, parse failure).
   - PO can query via bot command `/stats` for a daily/weekly summary.
   - No Prometheus/Grafana in MVP — operational simplicity per PRD-001@0.1.0 §7 (single PO, no dev-ops rotation).
 - **Alerting:**
