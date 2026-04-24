@@ -265,11 +265,13 @@ Metrics:
   name: text
   period: enum(daily, weekly, monthly, total)
   value: integer (default 0)
-  period_date: date (nullable)
+  period_date: date (NOT NULL)
     # For daily rows: the calendar date the counter covers (e.g. 2026-04-24).
     # For weekly rows: the Monday of the ISO week the counter covers.
     # For monthly rows: the first day of the month the counter covers.
-    # For total rows: NULL (no date anchor — cumulative since DB init).
+    # For total rows: '1970-01-01' (sentinel — cumulative since DB init).
+    #   NULL is not used because SQLite treats NULL != NULL for uniqueness,
+    #   which would break the ON CONFLICT UPSERT for total-period rows.
   updated_at: datetime
   primary_key: (name, period, period_date)
   # Each counter name has up to four rows per period window (one per
@@ -278,7 +280,7 @@ Metrics:
   #   value = value + excluded.value, updated_at = excluded.updated_at).
   # On period rollover the ingester/classifier/etc. MUST insert a fresh
   # row with the new period_date (value=1); the old row remains for
-  # historical queries.  Total-period rows share period_date=NULL.
+  # historical queries.  Total-period rows share period_date='1970-01-01'.
 ```
 
 ## 6. External Interfaces
@@ -318,8 +320,8 @@ Metrics:
   - Destination: stdout (captured by Docker logging driver → `/var/log/smm-autopilot/`).
   - Retention: 7 days on disk via Docker `max-size: 50m, max-file: 5` log rotation.
 - **Metrics:**
-  - Tracked in the `Metrics` table defined in §5 (composite PK `(name, period, period_date)`). Each counter name is stored in four period buckets (`daily`, `weekly`, `monthly`, `total`), upserted on each event. `period_date` anchors each row to a specific date (daily → calendar date, weekly → ISO-week Monday, monthly → first-of-month, total → NULL).
-  - Counter rows (seeded at DB init for each counter name × each period; period_date set to the current date for daily/weekly/monthly rows, NULL for total rows):
+  - Tracked in the `Metrics` table defined in §5 (composite PK `(name, period, period_date)`). Each counter name is stored in four period buckets (`daily`, `weekly`, `monthly`, `total`), upserted on each event. `period_date` anchors each row to a specific date (daily → calendar date, weekly → ISO-week Monday, monthly → first-of-month, total → sentinel `'1970-01-01'`). NULL is not used because SQLite `NULL ≠ NULL` would break the `ON CONFLICT` UPSERT.
+  - Counter rows (seeded at DB init for each counter name × each period; period_date set to the current date for daily/weekly/monthly rows, `'1970-01-01'` for total rows):
     - `items_ingested` — incremented by SourceIngester on each new RawItem.
     - `items_classified` — incremented by Classifier on each ClassifiedItem.
     - `drafts_generated` — incremented by DraftGenerator on each Draft.
@@ -330,7 +332,7 @@ Metrics:
     - `llm_calls_total` — incremented by LLMClient on each API call (success or failure).
     - `llm_tokens_total` — incremented by LLMClient with the token count returned by the provider.
     - `llm_errors` — incremented by LLMClient on each provider error (timeout, rate-limit, parse failure).
-  - Period rollover: when a new day/week/month begins, the first incrementing event MUST insert a fresh row with the new `period_date` (value=1). Old rows remain for historical queries. Total rows (period_date=NULL) are never reset.
+  - Period rollover: when a new day/week/month begins, the first incrementing event MUST insert a fresh row with the new `period_date` (value=1). Old rows remain for historical queries. Total rows (period_date='1970-01-01') are never reset.
   - PO can query via bot command `/stats` for a daily/weekly summary.
   - No Prometheus/Grafana in MVP — operational simplicity per PRD-001@0.1.0 §7 (single PO, no dev-ops rotation).
 - **Alerting:**
