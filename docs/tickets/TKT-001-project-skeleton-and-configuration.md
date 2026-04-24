@@ -60,8 +60,8 @@ Create the Python project structure with async entrypoint, SQLite database initi
 - [ ] `python -m smm_autopilot` starts without error and exits cleanly on SIGINT
 - [ ] `pytest tests/test_db.py -v` passes
 - [ ] SQLite database is created at the configured path with WAL mode enabled (`PRAGMA journal_mode` returns `wal`)
-- [ ] All tables from ARCH-001@0.1.1 §5 exist with correct columns, including `SchemaVersion` and `Metrics` (composite PK `(name, period)`)
-  - [ ] `Metrics` table is seeded at DB init with the counter rows listed in ARCH-001@0.1.1 §8 Observability (one row per counter name × period bucket)
+- [ ] All tables from ARCH-001@0.1.1 §5 exist with correct columns, including `SchemaVersion` and `Metrics` (composite PK `(name, period, period_date)`)
+  - [ ] `Metrics` table is seeded at DB init with the counter rows listed in ARCH-001@0.1.1 §8 Observability (one row per counter name × period bucket, `period_date` set to current date for daily/weekly/monthly rows, NULL for total rows)
 - [ ] `docker compose build` succeeds
 - [ ] `docker compose up -d` starts the container with CPU/memory limits visible in `docker stats`
 - [ ] `ruff check src/ tests/` clean
