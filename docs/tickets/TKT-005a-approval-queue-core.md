@@ -38,7 +38,7 @@ Implement the ApprovalBot approval queue core for PO draft review across normal 
 ## 4. Inputs (Executor MUST read before writing code)
 
 - ARCH-001@0.1.1 §3.4 ApprovalBot (responsibility, inputs, outputs, failure modes)
-- ARCH-001@0.1.1 §5 Data Model (`Draft`, `Channel`, `CadenceConfig` schemas)
+- ARCH-001@0.1.1 §5 Data Model (`Draft`, `Channel`, `CadenceConfig`, `Metrics` schemas) + §8 Observability (`handlers.py` increments `drafts_approved`, `drafts_rejected` to the `Metrics` table on PO actions)
 - ARCH-001@0.1.1 §6 External Interfaces (Telegram Bot API PO bot)
 - ADR-001@0.1.0 (python-telegram-bot v21+ async)
 - TKT-001@0.1.1 outputs: `db.py`, `models.py`, `config.py`

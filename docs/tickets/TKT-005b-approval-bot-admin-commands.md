@@ -39,7 +39,7 @@ Implement ApprovalBot admin commands for sources, cadence, channels, sensitivity
 ## 4. Inputs (Executor MUST read before writing code)
 
 - ARCH-001@0.1.1 §3.4 ApprovalBot (admin interface responsibility)
-- ARCH-001@0.1.1 §5 Data Model (`Source`, `Channel`, `CadenceConfig`, `SensitivityKeyword` schemas)
+- ARCH-001@0.1.1 §5 Data Model (`Source`, `Channel`, `CadenceConfig`, `SensitivityKeyword` schemas) + §8 Observability (no counter writes — admin commands do not modify Metrics rows)
 - ARCH-001@0.1.1 §6 External Interfaces (Telegram Bot API PO bot)
 - ADR-001@0.1.0 (python-telegram-bot v21+ async)
 - TKT-001@0.1.1 outputs: `db.py`, `models.py`, `config.py`
