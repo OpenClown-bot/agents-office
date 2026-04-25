@@ -83,6 +83,10 @@ Implement the SourceIngester component that polls configured RSS feeds, public T
 - 2026-04-25: Committed, updated ticket status to in_review.
 - 2026-04-25: Fixed HIGH — Telegram cross-channel contamination (Devin Review PR#9). Restricted allowed_updates to ["channel_post"], added chat username filter with case-insensitive + @-prefix normalization. Added test_telegram_fetch_filters_by_channel. pytest 24/24, ruff clean, mypy clean.
 - 2026-04-25: Reverted AC checkbox edits in §5/§6/§8 per Devin Review HIGH #2 — AC status belongs to PR description, not ticket file.
+- 2026-04-25: Fix F-H1 — Added `_extract_telegram_channel_username()` helper to service.py; parses t.me URLs via urlparse to extract bare username. Updated run_once() to pass extracted username to telegram.fetch(). Added parametrized unit test and integration test test_service_run_once_telegram.
+- 2026-04-25: Fix F-M1 — Added explicit published_at assertions in RSS persist test (asserts ISO-8601 matching pubDate) and telegram integration test; web test asserts published_at is None per spec.
+- 2026-04-25: Fix F-M2 — Replaced placeholder test_service_unknown_source_type_skipped with meaningful version that mocks db.execute_read to inject invalid_type source, asserts no exception raised, no raw_item persisted.
+- 2026-04-25: Fix F-M3 — Rewrote test_service_run_once_rss, test_service_run_once_web, and new telegram test to use HTTP-level mocks (httpx.MockTransport + patched AsyncClient) instead of monkey-patching SourceIngester.run_once. All run_once tests now exercise real code top-to-bottom. pytest 30/30, ruff clean, mypy --strict clean.
 
 ---
 
