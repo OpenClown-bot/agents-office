@@ -3,7 +3,7 @@ id: RV-CODE-002
 type: code
 target_pr: "https://github.com/OpenClown-bot/agents-office/pull/9"
 ticket_ref: TKT-002@0.1.1
-status: approved
+status: in_review
 reviewer_model: "kimi-k2.6"
 created: 2026-04-25
 version: 0.1.1
