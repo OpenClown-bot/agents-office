@@ -41,10 +41,17 @@ Deferred items from ARCH-001@0.1.1 review cycle. To be addressed in the next Arc
 ### Low
 - **F-S1** (`tests/test_db.py:145-151`): `test_metrics_composite_pk` checks column names but does not verify the composite PRIMARY KEY constraint on `(name, period, period_date)`. Add an explicit duplicate-INSERT test that should raise `IntegrityError`.
 - **F-S2** (`tests/test_db.py:47-67`): `test_schema_tables_exist` verifies table names only, not column correctness for tables other than `metrics`. Extend test to introspect column lists for all 12 tables.
-- **F-S3** (`Dockerfile:1-13`): Image runs as root. Add `RUN useradd --system --no-create-home smm` and `USER smm` for defense-in-depth.
-- **F-S4**: (4th finding from Kimi — read RV-CODE-001 file in PR#8 to copy exact text; not in PR description top-3.)
+- **F-S3** (`Dockerfile:1-13`): Image runs as root. Add `RUN useradd -m -u 1000 smm` and `USER smm` for defense-in-depth.
+- **F-S4** (`src/smm_autopilot/db.py:115-124`): `execute_read` acquires `self._write_lock`, but `_write_worker` never acquires the same lock. Under SQLite WAL mode this is technically safe (readers and writers do not block each other), yet the asymmetric locking is confusing. **Remediation**: either remove `_write_lock` from `execute_read` (documenting that WAL mode provides concurrency safety) or acquire it in `_write_worker` for clarity.
 
-These can be addressed either in TKT-002 test refactor or in a small follow-up TKT-001a hardening ticket.
+These can be addressed in TKT-002 test refactor or in a small follow-up TKT-001a hardening ticket.
+
+## 5. From Devin Review on PR#8 (RV-CODE-001 template/role inconsistencies)
+
+### Low
+- Frontmatter `type: code_review` (from `TEMPLATE-code.md`) does not match `reviewer.md:144` contract which mandates `type: code` (matching `RV-SPEC-001` precedent of `type: spec`). Fix: align `docs/reviews/TEMPLATE-code.md` with the role file, OR amend the role file to allow `code_review`. Pick one source of truth.
+- Findings grouped by `### Blocking` / `### Non-blocking` (template style) instead of `### High` / `### Medium` / `### Low` (`reviewer.md:145` mandate, matching `RV-SPEC-001` precedent). Same root cause: template diverges from role file. Fix in same place as above.
+
 
 ## Resolution
 
