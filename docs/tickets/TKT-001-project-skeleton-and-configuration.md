@@ -90,6 +90,9 @@ Create the Python project structure with async entrypoint, SQLite database initi
 - 2026-04-25: `pytest tests/test_db.py -v` → 9/9 passed. `ruff check src/ tests/` → clean. `mypy src/ --strict` → clean. `python -m smm_autopilot` → starts and exits on SIGTERM.
 - 2026-04-25: Self-review: all files in §5 Outputs only. All ACs verifiable. No TODOs/FIXMEs. No scope drift.
 - 2026-04-25: Committed. Status → in_review. PR opened.
+- 2026-04-25: FIX1 — UTC date in _seed_metrics per ARCH-001@0.1.1 §3.5: `src/smm_autopilot/db.py:258` `date.today()` → `datetime.now(tz=timezone.utc).date()`. Proof: test_metrics_period_dates passes with UTC-sourced dates.
+- 2026-04-25: FIX2 — SMM_LOG_LEVEL wires to structlog verbosity: `src/smm_autopilot/__main__.py:5,23-27` added `import logging`, moved structlog.configure after load_config, replaced hardcoded 20 with `getattr(logging, config.log_level.upper(), logging.INFO)`. Also fixed `src/smm_autopilot/config.py` to read env at call-time in `load_config()` instead of class-definition-time. Proof: `test_log_level_from_env` sets `SMM_LOG_LEVEL=DEBUG` → `config.log_level == "DEBUG"`.
+- 2026-04-25: FIX3 — Metrics seeding idempotent via INSERT OR IGNORE: `src/smm_autopilot/db.py:255-272` replaced COUNT>0 guard with fast-path COUNT==expected_total, changed INSERT to INSERT OR IGNORE on composite PK. Proof: `test_metrics_seeding_idempotent_partial_state` pre-populates 20/40 rows, calls _seed_metrics, asserts 40/40.
 
 ---
 
