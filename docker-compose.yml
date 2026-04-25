@@ -1,0 +1,16 @@
+services:
+  smm-autopilot:
+    build: .
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4g
+    env_file:
+      - .env
+    volumes:
+      - smm-data:/app/data
+
+volumes:
+  smm-data:

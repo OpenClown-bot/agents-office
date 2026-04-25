@@ -63,6 +63,10 @@ TYPE_RULES: dict[str, tuple[set[str], set[str]]] = {
         {"id", "status", "ticket_ref", "asker_model", "created"},
         {"open", "answered", "superseded"},
     ),
+    "backlog": (
+        {"id", "title", "status", "spec_ref", "created"},
+        {"open", "in_progress", "closed"},
+    ),
 }
 
 ID_PREFIX_FOR_TYPE = {
@@ -72,6 +76,7 @@ ID_PREFIX_FOR_TYPE = {
     "tickets": "TKT",
     "reviews": "RV",
     "questions": "Q",
+    "backlog": "BACKLOG",
 }
 
 
@@ -168,18 +173,21 @@ def validate_artifact(art: Artifact, known_ids: set[str]) -> list[str]:
             errors.append(f"referenced artifact {ref_id} does not exist")
 
     # Detect unpinned references like `PRD-001 ` (no @version) — warn.
-    bare_re = re.compile(r"\b(PRD|ARCH|ADR|TKT)-\d{3,}(?!@)")
-    for m in bare_re.finditer(body_no_fences):
-        # allow inside placeholder like "PRD-XXX"
-        token = m.group(0)
-        if "XXX" in token:
-            continue
-        # skip if it's the artifact's own id near top
-        if token == art_id:
-            continue
-        errors.append(
-            f"unpinned reference '{token}' — must be '{token}@X.Y.Z'"
-        )
+    # Skip for backlog type: backlog items are meta-documents that reference
+    # specs in prose headings and version labels, not formal cross-references.
+    if art.type_ != "backlog":
+        bare_re = re.compile(r"\b(PRD|ARCH|ADR|TKT)-\d{3,}(?!@)")
+        for m in bare_re.finditer(body_no_fences):
+            # allow inside placeholder like "PRD-XXX"
+            token = m.group(0)
+            if "XXX" in token:
+                continue
+            # skip if it's the artifact's own id near top
+            if token == art_id:
+                continue
+            errors.append(
+                f"unpinned reference '{token}' — must be '{token}@X.Y.Z'"
+            )
 
     return errors
 
