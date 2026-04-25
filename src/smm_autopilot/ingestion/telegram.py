@@ -79,7 +79,7 @@ async def fetch(
                 url,
                 json={
                     "offset": offset,
-                    "allowed_updates": ["channel_post", "message"],
+                    "allowed_updates": ["channel_post"],
                     "timeout": 10,
                 },
                 timeout=30.0,
@@ -134,14 +134,20 @@ async def fetch(
         )
         return []
 
+    normalized_channel = channel_username.lstrip("@").lower()
+
     items: list[FetchedItem] = []
     results: list[dict[str, Any]] = data.get("result", [])
     for update in results:
-        message: Any = update.get("channel_post") or update.get("message")
-        if message is None or not isinstance(message, dict):
+        channel_post: Any = update.get("channel_post")
+        if not isinstance(channel_post, dict):
+            continue
+        chat: dict[str, Any] = channel_post.get("chat", {})
+        chat_username: str = (chat.get("username") or "").lower()
+        if chat_username != normalized_channel:
             continue
         try:
-            item = _message_to_item(message, channel_username)
+            item = _message_to_item(channel_post, channel_username)
             if item is not None:
                 items.append(item)
         except Exception as exc:

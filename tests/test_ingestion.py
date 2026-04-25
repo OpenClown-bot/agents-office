@@ -562,3 +562,49 @@ async def test_service_duplicate_unique_constraint(db: Database) -> None:
     rows = await db.execute_read("SELECT title, body FROM raw_item WHERE external_id = 'existing-1'")
     assert len(rows) == 1
     assert rows[0]["title"] == "Old Title"
+
+
+@pytest.mark.asyncio
+async def test_telegram_fetch_filters_by_channel() -> None:
+    tg_response = {
+        "ok": True,
+        "result": [
+            {
+                "update_id": 300,
+                "channel_post": {
+                    "message_id": 50,
+                    "chat": {"username": "targetchannel"},
+                    "text": "Target channel message",
+                    "date": 1745496000,
+                },
+            },
+            {
+                "update_id": 301,
+                "channel_post": {
+                    "message_id": 60,
+                    "chat": {"username": "otherchannel"},
+                    "text": "Other channel message",
+                    "date": 1745496060,
+                },
+            },
+            {
+                "update_id": 302,
+                "message": {
+                    "message_id": 70,
+                    "chat": {"type": "private"},
+                    "text": "Private chat message",
+                    "date": 1745496120,
+                },
+            },
+        ],
+    }
+    import json
+
+    responses = {
+        "api.telegram.org": httpx.Response(200, text=json.dumps(tg_response)),
+    }
+    async with _make_client(responses) as client:
+        items = await telegram.fetch(client, "test-bot-token", "targetchannel")
+    assert len(items) == 1
+    assert items[0].body == "Target channel message"
+    assert items[0].external_id == "50"
