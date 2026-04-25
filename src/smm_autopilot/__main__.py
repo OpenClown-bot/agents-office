@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import signal
 
 import structlog
@@ -10,6 +11,8 @@ from smm_autopilot.db import Database
 
 
 async def main() -> None:
+    config = load_config()
+
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
@@ -19,13 +22,13 @@ async def main() -> None:
             structlog.processors.TimeStamper(fmt="iso", utc=True),
             structlog.processors.JSONRenderer(),
         ],
-        wrapper_class=structlog.make_filtering_bound_logger(20),
+        wrapper_class=structlog.make_filtering_bound_logger(
+            getattr(logging, config.log_level.upper(), logging.INFO)
+        ),
         context_class=dict,
         logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
     )
-
-    config = load_config()
     db = Database(config)
     await db.connect()
     await db.init_schema()
