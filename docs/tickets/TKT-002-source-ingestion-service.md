@@ -2,7 +2,7 @@
 id: TKT-002
 title: "Source ingestion service"
 version: 0.1.1
-status: draft
+status: ready
 arch_ref: ARCH-001@0.1.1
 component: "SourceIngester"
 depends_on: [TKT-001]
