@@ -33,7 +33,7 @@ Implement the DraftGenerator component that produces 1–3 channel-tailored Russ
 
 ## 4. Inputs (Executor MUST read before writing code)
 - ARCH-001@0.1.1 §3.3 DraftGenerator (responsibility, inputs, outputs, LLM usage, failure modes, prompt-injection mitigation)
-- ARCH-001@0.1.1 §5 Data Model (`Draft`, `Channel`, `ClassifiedItem` retry metadata schemas)
+- ARCH-001@0.1.1 §5 Data Model (`Draft`, `Channel`, `ClassifiedItem` retry metadata, `Metrics` schemas) + §8 Observability (`service.py` increments `drafts_generated` to the `Metrics` table)
 - ARCH-001@0.1.1 §6 External Interfaces (channel character limits)
 - ADR-003@0.1.0 (direct HTTP calls for LLM)
 - TKT-001@0.1.1 outputs: `db.py`, `models.py`, `config.py`

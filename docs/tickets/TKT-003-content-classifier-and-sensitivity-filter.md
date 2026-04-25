@@ -37,7 +37,7 @@ Implement the Classifier component that categorises raw items via a free-tier LL
 
 ## 4. Inputs (Executor MUST read before writing code)
 - ARCH-001@0.1.1 §3.2 Classifier (responsibility, inputs, outputs, LLM usage, failure modes, prompt-injection mitigation)
-- ARCH-001@0.1.1 §5 Data Model (`ClassifiedItem`, `SensitivityKeyword` schemas)
+- ARCH-001@0.1.1 §5 Data Model (`ClassifiedItem`, `SensitivityKeyword`, `Metrics` schemas) + §8 Observability (`service.py` increments `items_classified`; `usage.py` persists `llm_calls_total`, `llm_tokens_total`, `llm_errors` to the `Metrics` table)
 - ARCH-001@0.1.1 §6 External Interfaces (GLM-4-Flash, Qwen-Turbo rate limits)
 - ADR-003@0.1.0 (direct HTTP calls via httpx for LLM orchestration)
 - TKT-001@0.1.1 outputs: `db.py`, `models.py`, `config.py`

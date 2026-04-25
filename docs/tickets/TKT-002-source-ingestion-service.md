@@ -34,7 +34,7 @@ Implement the SourceIngester component that polls configured RSS feeds, public T
 
 ## 4. Inputs (Executor MUST read before writing code)
 - ARCH-001@0.1.1 §3.1 SourceIngester (responsibility, inputs, outputs, failure modes)
-- ARCH-001@0.1.1 §5 Data Model (`Source`, `RawItem` schemas)
+- ARCH-001@0.1.1 §5 Data Model (`Source`, `RawItem`, `Metrics` schemas) + §8 Observability (`service.py` increments `items_ingested` to the `Metrics` table)
 - ARCH-001@0.1.1 §6 External Interfaces (RSS, Telegram Bot API source ingestion)
 - ADR-001@0.1.0 (Python + httpx + feedparser + beautifulsoup4)
 - ADR-002@0.1.0 (SQLite via aiosqlite)

@@ -35,7 +35,7 @@ Implement the four channel publisher adapters (Telegram, X, Threads, Instagram) 
 
 ## 4. Inputs (Executor MUST read before writing code)
 - ARCH-001@0.1.1 §3.6 ChannelPublishers (responsibility, inputs, outputs, failure modes per adapter, ToS enforcement)
-- ARCH-001@0.1.1 §5 Data Model (`PublishJob`, `PublishLog`, `Channel` schemas)
+- ARCH-001@0.1.1 §5 Data Model (`PublishJob`, `PublishLog`, `Channel`, `Metrics` schemas) + §8 Observability (adapter `publish()` increments `posts_published` on success, `posts_failed` on permanent failure to the `Metrics` table)
 - ARCH-001@0.1.1 §6 External Interfaces (all 4 platform APIs: protocol, auth, rate limits)
 - ADR-001@0.1.0 (Python + httpx)
 - TKT-001@0.1.1 outputs: `db.py`, `models.py`, `config.py`

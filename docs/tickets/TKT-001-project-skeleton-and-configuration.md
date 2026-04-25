@@ -21,7 +21,7 @@ Create the Python project structure with async entrypoint, SQLite database initi
 ## 2. In Scope
 - `src/smm_autopilot/__init__.py`, `src/smm_autopilot/__main__.py` (async entrypoint)
 - `src/smm_autopilot/db.py` (SQLite connection pool with aiosqlite, WAL mode, async write queue)
-- `src/smm_autopilot/models.py` (dataclass definitions matching ARCH-001@0.1.1 §5 schemas)
+- `src/smm_autopilot/models.py` (dataclass definitions matching ARCH-001@0.1.1 §5 schemas, including the `Metrics` table)
 - `src/smm_autopilot/config.py` (environment variable loading via `os.environ`, config dataclass)
 - `requirements.txt` with pinned versions
 - `Dockerfile` (Python 3.12-slim base)
@@ -36,7 +36,8 @@ Create the Python project structure with async entrypoint, SQLite database initi
 - Deployment scripts — belongs to TKT-009@0.1.1
 
 ## 4. Inputs (Executor MUST read before writing code)
-- ARCH-001@0.1.1 §5 Data Model / Schemas (all table definitions)
+- ARCH-001@0.1.1 §5 Data Model / Schemas (all table definitions, including `Metrics`)
+- ARCH-001@0.1.1 §8 Observability (counter row names to seed into `Metrics` at DB init)
 - ARCH-001@0.1.1 §10 Deployment (Docker resource limits, container structure)
 - ADR-001@0.1.0 (Python 3.12 + asyncio)
 - ADR-002@0.1.0 (SQLite via aiosqlite, WAL mode)
@@ -59,7 +60,8 @@ Create the Python project structure with async entrypoint, SQLite database initi
 - [ ] `python -m smm_autopilot` starts without error and exits cleanly on SIGINT
 - [ ] `pytest tests/test_db.py -v` passes
 - [ ] SQLite database is created at the configured path with WAL mode enabled (`PRAGMA journal_mode` returns `wal`)
-- [ ] All tables from ARCH-001@0.1.1 §5 exist with correct columns, including `SchemaVersion`
+- [ ] All tables from ARCH-001@0.1.1 §5 exist with correct columns, including `SchemaVersion` and `Metrics` (composite PK `(name, period, period_date)`)
+  - [ ] `Metrics` table is seeded at DB init with the counter rows listed in ARCH-001@0.1.1 §8 Observability (one row per counter name × period bucket, `period_date` set per §5 semantics: current calendar date for daily rows, Monday of the current ISO week for weekly rows, first day of the current month for monthly rows, `'1970-01-01'` sentinel for total rows)
 - [ ] `docker compose build` succeeds
 - [ ] `docker compose up -d` starts the container with CPU/memory limits visible in `docker stats`
 - [ ] `ruff check src/ tests/` clean

@@ -36,7 +36,7 @@ Implement ApprovalBot discovery-candidate approval plus stats reporting commands
 
 - ARCH-001@0.1.1 §3.4 ApprovalBot (source-discovery candidate approval)
 - ARCH-001@0.1.1 §3.7 SourceDiscovery (candidate lifecycle)
-- ARCH-001@0.1.1 §5 Data Model (`Source`, `SourceCandidate`, `Draft`, `PublishJob`, `PublishLog` schemas)
+- ARCH-001@0.1.1 §5 Data Model (`Source`, `SourceCandidate`, `Draft`, `PublishJob`, `PublishLog`, `Metrics` schemas — `/stats` reads counters from the `Metrics` table)
 - ARCH-001@0.1.1 §8 Observability (`/stats` daily/weekly summary)
 - TKT-001@0.1.1 outputs: `db.py`, `models.py`, `config.py`
 - TKT&#45;005a@0.1.0 outputs: bot package, auth helper, handler registration pattern

@@ -1,7 +1,7 @@
 ---
 id: ADR-003
 title: "LLM Orchestration and Provider Routing"
-status: proposed
+status: accepted
 arch_ref: ARCH-001@0.1.0
 author_model: "claude-opus-4.6-thinking"
 created: 2026-04-24
