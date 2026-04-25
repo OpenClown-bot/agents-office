@@ -2,7 +2,7 @@
 id: TKT-001
 title: "Project skeleton and configuration"
 version: 0.1.1
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.1.1
 component: "all"
 depends_on: []
@@ -83,6 +83,13 @@ Create the Python project structure with async entrypoint, SQLite database initi
 ## 9. Questions (empty at creation; Executor appends here if blocked — do NOT start code)
 
 ## 10. Execution Log (Executor fills as work proceeds)
+
+- 2026-04-25: Claimed ticket. Read ARCH-001§5/§8/§10, ADR-001/002/004. Sanity-check passed.
+- 2026-04-25: Branch `tkt/TKT-001-project-skeleton` created.
+- 2026-04-25: Implemented all 11 output files. All SQL parameterized. No SQLAlchemy ORM. Dependencies exactly per §7 allowlist.
+- 2026-04-25: `pytest tests/test_db.py -v` → 9/9 passed. `ruff check src/ tests/` → clean. `mypy src/ --strict` → clean. `python -m smm_autopilot` → starts and exits on SIGTERM.
+- 2026-04-25: Self-review: all files in §5 Outputs only. All ACs verifiable. No TODOs/FIXMEs. No scope drift.
+- 2026-04-25: Committed. Status → in_review. PR opened.
 
 ---
 
