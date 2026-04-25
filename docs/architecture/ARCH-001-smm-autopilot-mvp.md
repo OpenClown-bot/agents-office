@@ -2,7 +2,7 @@
 id: ARCH-001
 title: "SMM Autopilot MVP"
 version: 0.1.1
-status: draft
+status: approved
 prd_ref: PRD-001@0.1.0
 owner: "@yourmomsenpai"
 author_model: "claude-opus-4.6-thinking"
