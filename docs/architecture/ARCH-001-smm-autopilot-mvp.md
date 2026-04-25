@@ -321,7 +321,7 @@ Metrics:
   - Retention: 7 days on disk via Docker `max-size: 50m, max-file: 5` log rotation.
 - **Metrics:**
   - Tracked in the `Metrics` table defined in §5 (composite PK `(name, period, period_date)`). Each counter name is stored in four period buckets (`daily`, `weekly`, `monthly`, `total`), upserted on each event. `period_date` anchors each row to a specific date (daily → calendar date, weekly → ISO-week Monday, monthly → first-of-month, total → sentinel `'1970-01-01'`). NULL is not used because SQLite `NULL ≠ NULL` would break the `ON CONFLICT` UPSERT.
-  - Counter rows (seeded at DB init for each counter name × each period; period_date set to the current date for daily/weekly/monthly rows, `'1970-01-01'` for total rows):
+  - Counter rows (seeded at DB init for each counter name × each period; `period_date` set per §5 semantics: current calendar date for daily rows, Monday of the current ISO week for weekly rows, first day of the current month for monthly rows, `'1970-01-01'` for total rows):
     - `items_ingested` — incremented by SourceIngester on each new RawItem.
     - `items_classified` — incremented by Classifier on each ClassifiedItem.
     - `drafts_generated` — incremented by DraftGenerator on each Draft.
