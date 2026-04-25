@@ -81,6 +81,7 @@ Implement the SourceIngester component that polls configured RSS feeds, public T
 - 2026-04-25: All 6 ACs verified green: pytest 23/23 pass, ruff clean, mypy --strict clean.
 - 2026-04-25: Self-review passed. All files in §5 Outputs, no out-of-scope edits, no new deps, no TODOs.
 - 2026-04-25: Committed, updated ticket status to in_review.
+- 2026-04-25: Fixed HIGH — Telegram cross-channel contamination (Devin Review PR#9). Restricted allowed_updates to ["channel_post"], added chat username filter with case-insensitive + @-prefix normalization. Added test_telegram_fetch_filters_by_channel. pytest 24/24, ruff clean, mypy clean.
 
 ---
 
