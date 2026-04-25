@@ -84,7 +84,7 @@ Create the Python project structure with async entrypoint, SQLite database initi
 
 ## 10. Execution Log (Executor fills as work proceeds)
 
-- 2026-04-25: Claimed ticket. Read ARCH-001§5/§8/§10, ADR-001/002/004. Sanity-check passed.
+- 2026-04-25: Claimed ticket. Read ARCH-001@0.1.1 §5/§8/§10, ADR-001@0.1.0, ADR-002@0.1.0, ADR-004@0.1.0. Sanity-check passed.
 - 2026-04-25: Branch `tkt/TKT-001-project-skeleton` created.
 - 2026-04-25: Implemented all 11 output files. All SQL parameterized. No SQLAlchemy ORM. Dependencies exactly per §7 allowlist.
 - 2026-04-25: `pytest tests/test_db.py -v` → 9/9 passed. `ruff check src/ tests/` → clean. `mypy src/ --strict` → clean. `python -m smm_autopilot` → starts and exits on SIGTERM.
