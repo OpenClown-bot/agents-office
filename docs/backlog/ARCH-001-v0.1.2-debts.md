@@ -36,6 +36,16 @@ Deferred items from ARCH-001@0.1.1 review cycle. To be addressed in the next Arc
 
 1. **Commit ordering on approval PRs**: in PR#6, status was flipped to `approved` (commit 513f26b) before the final content fix (c17c442). Per immutability gate, content fixes must precede status flips even within open PRs. Document this rule explicitly in CONTRIBUTING.md or QA-PLAYBOOK.md under "Approval workflow".
 
+## 4. From RV-CODE-001 (Kimi K2.6 CODE review of TKT-001, verdict pass_with_changes)
+
+### Low
+- **F-S1** (`tests/test_db.py:145-151`): `test_metrics_composite_pk` checks column names but does not verify the composite PRIMARY KEY constraint on `(name, period, period_date)`. Add an explicit duplicate-INSERT test that should raise `IntegrityError`.
+- **F-S2** (`tests/test_db.py:47-67`): `test_schema_tables_exist` verifies table names only, not column correctness for tables other than `metrics`. Extend test to introspect column lists for all 12 tables.
+- **F-S3** (`Dockerfile:1-13`): Image runs as root. Add `RUN useradd --system --no-create-home smm` and `USER smm` for defense-in-depth.
+- **F-S4**: (4th finding from Kimi — read RV-CODE-001 file in PR#8 to copy exact text; not in PR description top-3.)
+
+These can be addressed either in TKT-002 test refactor or in a small follow-up TKT-001a hardening ticket.
+
 ## Resolution
 
 When ARCH-001 v0.1.2 is opened, the Architect MUST:
