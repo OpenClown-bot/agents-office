@@ -2,7 +2,7 @@
 id: TKT-001
 title: "Project skeleton and configuration"
 version: 0.1.1
-status: draft
+status: ready
 arch_ref: ARCH-001@0.1.1
 component: "all"
 depends_on: []
