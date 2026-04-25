@@ -2,7 +2,7 @@
 id: TKT-002
 title: "Source ingestion service"
 version: 0.1.1
-status: ready
+status: in_review
 arch_ref: ARCH-001@0.1.1
 component: "SourceIngester"
 depends_on: [TKT-001]
@@ -73,6 +73,20 @@ Implement the SourceIngester component that polls configured RSS feeds, public T
 ## 9. Questions (empty at creation; Executor appends here if blocked — do NOT start code)
 
 ## 10. Execution Log (Executor fills as work proceeds)
+
+- 2026-04-25: Claimed ticket. Read ARCH-001@0.1.1 §3.1, §5, §6, §8; db.py; models.py; config.py; requirements.txt.
+- 2026-04-25: Sanity check passed. §5 Outputs coherent with §4 Inputs. All ACs map to code.
+- 2026-04-25: Created branch tkt/TKT-002-source-ingestion.
+- 2026-04-25: Implemented all 6 output files: __init__.py (shared FetchedItem dataclass), rss.py, telegram.py, web.py, service.py (SourceIngester with metrics increment), test_ingestion.py (23 tests).
+- 2026-04-25: All 6 ACs verified green: pytest 23/23 pass, ruff clean, mypy --strict clean.
+- 2026-04-25: Self-review passed. All files in §5 Outputs, no out-of-scope edits, no new deps, no TODOs.
+- 2026-04-25: Committed, updated ticket status to in_review.
+- 2026-04-25: Fixed HIGH — Telegram cross-channel contamination (Devin Review PR#9). Restricted allowed_updates to ["channel_post"], added chat username filter with case-insensitive + @-prefix normalization. Added test_telegram_fetch_filters_by_channel. pytest 24/24, ruff clean, mypy clean.
+- 2026-04-25: Reverted AC checkbox edits in §5/§6/§8 per Devin Review HIGH #2 — AC status belongs to PR description, not ticket file.
+- 2026-04-25: Fix F-H1 — Added `_extract_telegram_channel_username()` helper to service.py; parses t.me URLs via urlparse to extract bare username. Updated run_once() to pass extracted username to telegram.fetch(). Added parametrized unit test and integration test test_service_run_once_telegram.
+- 2026-04-25: Fix F-M1 — Added explicit published_at assertions in RSS persist test (asserts ISO-8601 matching pubDate) and telegram integration test; web test asserts published_at is None per spec.
+- 2026-04-25: Fix F-M2 — Replaced placeholder test_service_unknown_source_type_skipped with meaningful version that mocks db.execute_read to inject invalid_type source, asserts no exception raised, no raw_item persisted.
+- 2026-04-25: Fix F-M3 — Rewrote test_service_run_once_rss, test_service_run_once_web, and new telegram test to use HTTP-level mocks (httpx.MockTransport + patched AsyncClient) instead of monkey-patching SourceIngester.run_once. All run_once tests now exercise real code top-to-bottom. pytest 30/30, ruff clean, mypy --strict clean.
 
 ---
 
