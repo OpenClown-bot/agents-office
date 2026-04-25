@@ -252,17 +252,18 @@ class Database:
     async def _seed_metrics(self) -> None:
         if self._db is None:
             raise RuntimeError("Database not connected")
+        expected_total = len(METRICS_COUNTER_NAMES) * len(MetricsPeriod)
         rows = await self.execute_read("SELECT COUNT(*) as cnt FROM metrics")
-        if rows[0]["cnt"] > 0:
+        if rows[0]["cnt"] == expected_total:
             return
-        today = date.today()
+        today = datetime.now(tz=timezone.utc).date()
         period_dates = _compute_period_dates(today)
         now = _utcnow()
         for counter_name in METRICS_COUNTER_NAMES:
             for period in MetricsPeriod:
                 period_date = period_dates[period]
                 await self.execute_write(
-                    "INSERT INTO metrics (name, period, value, period_date, updated_at) "
+                    "INSERT OR IGNORE INTO metrics (name, period, value, period_date, updated_at) "
                     "VALUES (?, ?, 0, ?, ?)",
                     (counter_name, period.value, period_date, now),
                 )
