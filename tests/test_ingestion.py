@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -12,7 +14,7 @@ from smm_autopilot.config import AppConfig
 from smm_autopilot.db import Database
 from smm_autopilot.ingestion import FetchedItem
 from smm_autopilot.ingestion import rss, telegram, web
-from smm_autopilot.ingestion.service import SourceIngester
+from smm_autopilot.ingestion.service import SourceIngester, _extract_telegram_channel_username
 
 
 @pytest.fixture
@@ -101,6 +103,13 @@ class MockTransport(httpx.AsyncBaseTransport):
 
 def _make_client(responses: dict[str, httpx.Response]) -> httpx.AsyncClient:
     transport = MockTransport(responses)
+    return httpx.AsyncClient(transport=transport)
+
+
+def _mock_client_from_handler(
+    handler: Any,
+) -> httpx.AsyncClient:
+    transport = httpx.MockTransport(handler)
     return httpx.AsyncClient(transport=transport)
 
 
@@ -208,7 +217,6 @@ async def test_telegram_fetch_success() -> None:
             },
         ],
     }
-    import json
 
     responses = {
         "api.telegram.org": httpx.Response(200, text=json.dumps(tg_response)),
@@ -225,7 +233,6 @@ async def test_telegram_fetch_success() -> None:
 @pytest.mark.asyncio
 async def test_telegram_fetch_api_error() -> None:
     tg_response = {"ok": False, "description": "Unauthorized"}
-    import json
 
     responses = {
         "api.telegram.org": httpx.Response(200, text=json.dumps(tg_response)),
@@ -245,7 +252,11 @@ async def test_telegram_fetch_http_500() -> None:
     assert items == []
 
 
-async def _seed_source(db: Database, source_type: str = "rss", url: str = "https://feed.example.com/rss") -> int:
+async def _seed_source(
+    db: Database,
+    source_type: str = "rss",
+    url: str = "https://feed.example.com/rss",
+) -> int:
     now = datetime.now(tz=timezone.utc).isoformat()
     await db.execute_write(
         "INSERT INTO source (type, url, name, is_active, added_by, created_at, updated_at) "
@@ -261,20 +272,15 @@ async def test_service_rss_persist_raw_item(db: Database) -> None:
     source_id = await _seed_source(db, "rss", "https://feed.example.com/rss")
     ingester = SourceIngester(db, bot_token="test-token")
 
-    responses = {
-        "feed.example.com": httpx.Response(200, text=SAMPLE_RSS_XML),
-    }
-
-    import unittest.mock
-
-    with unittest.mock.patch.object(SourceIngester, "run_once", _mock_run_once(responses, db)):
-        async with _make_client(responses) as client:
-            fetched = await rss.fetch(client, "https://feed.example.com/rss")
-            for item in fetched:
-                await ingester._persist_item(source_id, item)
+    async with _make_client(
+        {"feed.example.com": httpx.Response(200, text=SAMPLE_RSS_XML)}
+    ) as client:
+        fetched = await rss.fetch(client, "https://feed.example.com/rss")
+        for item in fetched:
+            await ingester._persist_item(source_id, item)
 
     rows = await db.execute_read(
-        "SELECT source_id, external_id, title, body, url, status FROM raw_item"
+        "SELECT source_id, external_id, title, body, url, published_at, status FROM raw_item"
     )
     assert len(rows) == 2
     assert rows[0]["source_id"] == source_id
@@ -283,14 +289,8 @@ async def test_service_rss_persist_raw_item(db: Database) -> None:
     assert rows[0]["body"] == "Article body text"
     assert rows[0]["url"] == "https://example.com/article-1"
     assert rows[0]["status"] == "pending"
-
-
-def _mock_run_once(
-    responses: dict[str, httpx.Response], db: Database
-) -> Any:
-    async def _run(self: SourceIngester) -> None:
-        pass
-    return _run
+    assert rows[0]["published_at"] is not None
+    assert rows[0]["published_at"].startswith("2026-04-24T12:00:00+00:00")
 
 
 @pytest.mark.asyncio
@@ -393,33 +393,33 @@ async def test_service_run_once_rss(db: Database) -> None:
     await _seed_source(db, "rss", "https://feed.example.com/rss")
     ingester = SourceIngester(db, bot_token="test-token")
 
-    responses = {
+    _original_async_client = httpx.AsyncClient
+    rss_responses = {
         "feed.example.com": httpx.Response(200, text=SAMPLE_RSS_XML),
     }
 
-    original_run_once = SourceIngester.run_once
+    def client_factory(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        transport = MockTransport(rss_responses)
+        return _original_async_client(transport=transport)
 
-    async def patched_run_once(self: SourceIngester) -> None:
-        sources = await self._db.execute_read(
-            "SELECT id, type, url, name FROM source WHERE is_active = 1"
-        )
-        async with httpx.AsyncClient(
-            transport=MockTransport(responses)
-        ) as client:
-            for source in sources:
-                if source["type"] == "rss":
-                    fetched = await rss.fetch(client, source["url"])
-                    for item in fetched:
-                        await self._persist_item(source["id"], item)
-
-    SourceIngester.run_once = patched_run_once  # type: ignore[method-assign]
-    try:
+    with patch.object(httpx, "AsyncClient", client_factory):
         await ingester.run_once()
-    finally:
-        SourceIngester.run_once = original_run_once  # type: ignore[method-assign]
 
-    rows = await db.execute_read("SELECT COUNT(*) as cnt FROM raw_item")
-    assert rows[0]["cnt"] == 2
+    rows = await db.execute_read(
+        "SELECT source_id, external_id, title, body, url, published_at, status FROM raw_item"
+    )
+    assert len(rows) == 2
+    assert rows[0]["title"] == "Test Article"
+    assert rows[0]["body"] == "Article body text"
+    assert rows[0]["url"] == "https://example.com/article-1"
+    assert rows[0]["status"] == "pending"
+    assert rows[0]["published_at"] is not None
+    assert rows[0]["published_at"].startswith("2026-04-24")
+
+    m_rows = await db.execute_read(
+        "SELECT value FROM metrics WHERE name='items_ingested' AND period='total'"
+    )
+    assert m_rows[0]["value"] >= 2
 
 
 @pytest.mark.asyncio
@@ -427,45 +427,123 @@ async def test_service_run_once_web(db: Database) -> None:
     await _seed_source(db, "web_page", "https://example.com/page")
     ingester = SourceIngester(db, bot_token="test-token")
 
-    responses = {
+    _original_async_client = httpx.AsyncClient
+    web_responses = {
         "example.com": httpx.Response(200, text=SAMPLE_HTML),
     }
 
-    original_run_once = SourceIngester.run_once
+    def client_factory(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        transport = MockTransport(web_responses)
+        return _original_async_client(transport=transport)
 
-    async def patched_run_once(self: SourceIngester) -> None:
-        sources = await self._db.execute_read(
-            "SELECT id, type, url, name FROM source WHERE is_active = 1"
-        )
-        async with httpx.AsyncClient(
-            transport=MockTransport(responses)
-        ) as client:
-            for source in sources:
-                if source["type"] == "web_page":
-                    fetched = await web.fetch(client, source["url"])
-                    for item in fetched:
-                        await self._persist_item(source["id"], item)
-
-    SourceIngester.run_once = patched_run_once  # type: ignore[method-assign]
-    try:
+    with patch.object(httpx, "AsyncClient", client_factory):
         await ingester.run_once()
-    finally:
-        SourceIngester.run_once = original_run_once  # type: ignore[method-assign]
 
-    rows = await db.execute_read("SELECT COUNT(*) as cnt FROM raw_item")
-    assert rows[0]["cnt"] == 1
+    rows = await db.execute_read(
+        "SELECT source_id, external_id, title, body, url, published_at, status FROM raw_item"
+    )
+    assert len(rows) == 1
+    assert rows[0]["title"] == "Article Heading"
+    assert "article body" in rows[0]["body"]
+    assert rows[0]["url"] == "https://example.com/page"
+    assert rows[0]["status"] == "pending"
+    assert rows[0]["published_at"] is None
+
+    m_rows = await db.execute_read(
+        "SELECT value FROM metrics WHERE name='items_ingested' AND period='total'"
+    )
+    assert m_rows[0]["value"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_service_run_once_telegram(db: Database) -> None:
+    await _seed_source(db, "telegram_channel", "https://t.me/devin_test_chan")
+    ingester = SourceIngester(db, bot_token="test-token")
+
+    tg_response = {
+        "ok": True,
+        "result": [
+            {
+                "update_id": 1001,
+                "channel_post": {
+                    "message_id": 5,
+                    "date": 1714000000,
+                    "text": "Hello from devin_test_chan",
+                    "chat": {
+                        "id": -100,
+                        "username": "devin_test_chan",
+                        "type": "channel",
+                    },
+                },
+            },
+            {
+                "update_id": 1002,
+                "channel_post": {
+                    "message_id": 6,
+                    "date": 1714000100,
+                    "text": "Hello from other_channel",
+                    "chat": {
+                        "id": -101,
+                        "username": "other_channel",
+                        "type": "channel",
+                    },
+                },
+            },
+        ],
+    }
+
+    _original_async_client = httpx.AsyncClient
+    tg_responses = {
+        "api.telegram.org": httpx.Response(200, text=json.dumps(tg_response)),
+    }
+
+    def client_factory(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        transport = MockTransport(tg_responses)
+        return _original_async_client(transport=transport)
+
+    with patch.object(httpx, "AsyncClient", client_factory):
+        await ingester.run_once()
+
+    rows = await db.execute_read(
+        "SELECT source_id, external_id, title, body, url, published_at, status FROM raw_item"
+    )
+    assert len(rows) == 1
+    assert rows[0]["external_id"] == "5"
+    assert rows[0]["body"] == "Hello from devin_test_chan"
+    assert rows[0]["url"] == "https://t.me/devin_test_chan/5"
+    assert rows[0]["title"] is None
+    assert rows[0]["published_at"] is not None
+    assert rows[0]["published_at"].startswith("2024-04-24")
+
+    m_rows = await db.execute_read(
+        "SELECT value FROM metrics WHERE name='items_ingested' AND period='total'"
+    )
+    assert m_rows[0]["value"] >= 1
 
 
 @pytest.mark.asyncio
 async def test_service_unknown_source_type_skipped(db: Database) -> None:
-    await _seed_source(db, "rss", "https://feed.example.com/test")
+    original_read = db.execute_read
 
-    fake_sources = [{"id": 999, "type": "unknown_type", "url": "https://x.com", "name": "X"}]
-    for source in fake_sources:
-        source_type = source["type"]
-        assert source_type not in ("rss", "telegram_channel", "web_page")
+    async def mock_read(
+        sql: str, params: tuple[Any, ...] = ()
+    ) -> list[dict[str, Any]]:
+        if "FROM source" in sql.upper().replace("\n", " "):
+            return [
+                {
+                    "id": 999,
+                    "type": "invalid_type",
+                    "url": "https://invalid.example.com",
+                    "name": "Invalid",
+                }
+            ]
+        return await original_read(sql, params)
 
-    rows = await db.execute_read("SELECT COUNT(*) as cnt FROM raw_item")
+    with patch.object(db, "execute_read", side_effect=mock_read):
+        ingester = SourceIngester(db, bot_token="test-token")
+        await ingester.run_once()
+
+    rows = await original_read("SELECT COUNT(*) as cnt FROM raw_item")
     assert rows[0]["cnt"] == 0
 
 
@@ -516,7 +594,6 @@ async def test_telegram_message_no_text_skipped() -> None:
             },
         ],
     }
-    import json
 
     responses = {
         "api.telegram.org": httpx.Response(200, text=json.dumps(tg_response)),
@@ -598,7 +675,6 @@ async def test_telegram_fetch_filters_by_channel() -> None:
             },
         ],
     }
-    import json
 
     responses = {
         "api.telegram.org": httpx.Response(200, text=json.dumps(tg_response)),
@@ -608,3 +684,17 @@ async def test_telegram_fetch_filters_by_channel() -> None:
     assert len(items) == 1
     assert items[0].body == "Target channel message"
     assert items[0].external_id == "50"
+
+
+@pytest.mark.parametrize(
+    "input_url,expected",
+    [
+        ("https://t.me/channelname", "channelname"),
+        ("https://t.me/channelname/", "channelname"),
+        ("t.me/channelname/123", "channelname"),
+        ("@channelname", "channelname"),
+        ("channelname", "channelname"),
+    ],
+)
+def test_extract_telegram_channel_username(input_url: str, expected: str) -> None:
+    assert _extract_telegram_channel_username(input_url) == expected
