@@ -3,9 +3,10 @@ id: RV-CODE-002
 type: code
 target_pr: "https://github.com/OpenClown-bot/agents-office/pull/9"
 ticket_ref: TKT-002@0.1.1
-status: in_review
+status: approved
 reviewer_model: "kimi-k2.6"
 created: 2026-04-25
+version: 0.1.1
 ---
 
 # Code Review — PR #9 (TKT-002@0.1.1)
@@ -78,3 +79,33 @@ created: 2026-04-25
 
 ## Verdict justification
 `fail` — F-H1 is a correctness bug that silently drops all Telegram channel updates when `Source.url` is stored as a URL (the schema semantics). It is not caught by any test because the Telegram service-level path is untested (F-M4). The out-of-zone backlog edit (F-M5) is a process violation. These must be fixed before merge.
+
+---
+
+## Re-review (after Executor fixes)
+
+**Date:** 2026-04-25  
+**Commits examined:** `ccab6c7`, `12c9535`, `2661d97` on executor branch `tkt/002-source-ingestion`
+
+### New verdict
+`pass` — all blocking findings (F-H1, F-M1–F-M4) are resolved. F-M5 was a false positive. Low findings (F-L1, F-L2) are acknowledged and do not block merge.
+
+### Per-finding status
+
+| Finding | Severity | Status | Notes |
+|---------|----------|--------|-------|
+| F-H1 | High | **resolved** | `_extract_telegram_channel_username()` added in `service.py`; handles `https://t.me/…`, `t.me/…`, `@…`, and bare username. Five parametric unit tests verify parsing. `test_service_run_once_telegram` end-to-end validates `https://t.me/devin_test_chan` → persisted `RawItem` with correct URL. |
+| F-M1 | Medium | **resolved** | `test_service_rss_persist_raw_item` now SELECTs `published_at` and asserts `startswith("2026-04-24T12:00:00+00:00")`. `test_service_run_once_rss`, `test_service_run_once_telegram`, and `test_service_run_once_web` also assert `published_at`. |
+| F-M2 | Medium | **resolved** | `test_service_unknown_source_type_skipped` rewritten: mocks `db.execute_read` to return `type="invalid_type"`, calls real `ingester.run_once()`, asserts zero `raw_item` rows. |
+| F-M3 | Medium | **resolved** | Class-level monkey-patching eliminated. Tests now `patch.object(httpx, "AsyncClient", client_factory)` injecting `MockTransport`; real `SourceIngester.run_once()` exercised end-to-end for RSS, web, and Telegram. |
+| F-M4 | Medium | **resolved** | New `test_service_run_once_telegram` added — seeds `telegram_channel` source with `https://t.me/devin_test_chan`, mocks Bot API `getUpdates`, calls `run_once()`, asserts `RawItem` with `external_id="5"` and `url="https://t.me/devin_test_chan/5"`. |
+| F-M5 | Medium | **retracted** | False positive. `git log main..origin/tkt/002-source-ingestion --name-only -- docs/backlog/` returns empty; the backlog edit was present on the local `pr9` fetch but not in the Executor's actual branch. Executor never touched the backlog. |
+| F-L1 | Low | acknowledged | Duplicate detection still string-matches `"UNIQUE constraint failed"`. Non-blocking; unlikely to regress with pinned `aiosqlite==0.20.0`. |
+| F-L2 | Low | acknowledged | `_increment_items_ingested()` remains outside `_persist_item` try/except. Non-blocking for MVP; metrics loss is acceptable vs. ingestion abort. |
+| F-L3 | Low | **resolved** | Class-level patching removed; now uses `unittest.mock.patch.object(httpx, "AsyncClient", ...)` at module level — safe and reversible per-test. |
+
+### CI re-run
+- `pytest tests/test_ingestion.py -v` → **30/30 passed** (was 24/24)
+- `ruff check src/smm_autopilot/ingestion/ tests/test_ingestion.py` → clean
+- `mypy src/smm_autopilot/ingestion/ --strict` → clean
+- `python3 scripts/validate_docs.py` → clean (all 22 artifacts pass)
