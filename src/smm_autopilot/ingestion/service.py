@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from urllib.parse import urlparse
 
 import httpx
 import structlog
@@ -12,6 +13,21 @@ from smm_autopilot.ingestion import rss, telegram, web
 logger = structlog.get_logger()
 
 _METRICS_COUNTER_NAME = "items_ingested"
+
+
+def _extract_telegram_channel_username(source_url: str) -> str:
+    cleaned = source_url.strip()
+    if cleaned.startswith("@"):
+        return cleaned[1:]
+    if "://" not in cleaned and not cleaned.startswith("t.me/"):
+        return cleaned.lstrip("@")
+    if "://" not in cleaned:
+        cleaned = "https://" + cleaned
+    parsed = urlparse(cleaned)
+    path = parsed.path.strip("/")
+    if not path:
+        return ""
+    return path.split("/")[0].lstrip("@")
 
 
 def _utcnow() -> str:
@@ -55,8 +71,16 @@ class SourceIngester:
                     if source_type == "rss":
                         fetched = await rss.fetch(client, source_url)
                     elif source_type == "telegram_channel":
+                        channel_username = _extract_telegram_channel_username(source_url)
+                        if not channel_username:
+                            logger.warning(
+                                "telegram_channel_username_empty",
+                                source_id=source_id,
+                                url=source_url,
+                            )
+                            continue
                         fetched = await telegram.fetch(
-                            client, self._bot_token, source_url
+                            client, self._bot_token, channel_username
                         )
                     elif source_type == "web_page":
                         fetched = await web.fetch(client, source_url)
