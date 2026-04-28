@@ -63,6 +63,12 @@ These can be addressed in TKT-002 test refactor or in a small follow-up TKT-001a
 - **`response` variable theoretically unbound after retry exhaustion** (`src/smm_autopilot/ingestion/rss.py:70-115`): control flow guarantees safety today (every retry-exhaust path explicitly returns `[]`), but mypy's type narrowing and future maintainers may struggle to prove this. Initialize `response: httpx.Response | None = None` at the top of the function and assert non-None after the loop, OR refactor retry logic into a helper function with a clearer return contract.
 - **Duplicated `_utcnow` and `_compute_period_dates`** between `src/smm_autopilot/ingestion/service.py:17-33` and `src/smm_autopilot/db.py:153-169`: identical logic, different key types (string vs `MetricsPeriod` enum). Maintenance risk. Resolution: extract these utilities to a new `src/smm_autopilot/utils/datetime.py` module in a separate hardening ticket (proposed: TKT-001a). The existing `db.py` `_compute_period_dates` was private (`_` prefix) AND inside a TKT-001 §7 "do not modify" zone for the Executor of TKT-002 — hence the duplication. Surfacing this constraint as a follow-up is correct process behavior.
 
+## 7. Process improvements from TKT-002 cycle
+
+### Medium
+- **Reviewer role file does not explicitly forbid `status: approved` self-transitions.** During RV-CODE-002 re-review, the PO's instruction to "bump status to approved" caused the Reviewer to violate the in_review → approved transition rule (caught by Devin Review on PR#10, commit `b18900c` reverted by `edabd28`). Fix in v0.1.2: add an explicit clause in `docs/prompts/reviewer.md` — "**The Reviewer NEVER changes `status` to `approved`. Status remains `in_review` for the artifact's lifetime; PO approval is implicit via merging the PR.**" Same clarification belongs as a comment in `docs/reviews/TEMPLATE-code.md` and `TEMPLATE-spec.md`.
+- **PO re-review prompt template should NOT include status-bump instructions.** Root cause of this violation was the PO including "change `status: in_review` → `status: approved`" in the re-review instructions. Add to `docs/OPERATIONAL-PLAYBOOK.md` a "Re-review prompt template" section that explicitly states the prompt must not touch `status` fields in the artifact's frontmatter.
+
 ## Resolution
 
 When ARCH-001 v0.1.2 is opened, the Architect MUST:
