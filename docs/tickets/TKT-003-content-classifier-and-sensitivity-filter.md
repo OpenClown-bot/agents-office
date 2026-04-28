@@ -2,7 +2,7 @@
 id: TKT-003
 title: "Content classifier and sensitivity filter"
 version: 0.1.1
-status: ready
+status: in_progress
 arch_ref: ARCH-001@0.1.1
 component: "Classifier"
 depends_on: [TKT-001]
@@ -82,6 +82,14 @@ Implement the Classifier component that categorises raw items via a free-tier LL
 ## 9. Questions (empty at creation; Executor appends here if blocked — do NOT start code)
 
 ## 10. Execution Log (Executor fills as work proceeds)
+
+- 2026-04-28: Claimed ticket. Status `ready`, assigned_executor `glm-5.1` confirmed.
+- 2026-04-28: Read §4 Inputs: ARCH-001@0.1.1 §3.2, §5, §6, §8, §9; ADR-003@0.1.0; TKT-001 outputs (db.py, models.py, config.py).
+- 2026-04-28: Sanity-check passed: §5 Outputs coherent with §4 Inputs, ACs map to ArchSpec sections.
+- 2026-04-28: Created branch `tkt/TKT-003-classifier-sensitivity`.
+- 2026-04-28: Implemented all 10 output files: llm/{__init__,client,providers,usage}.py, classifier/{__init__,service,prompts,sensitivity}.py, tests/{test_classifier,test_llm_client}.py.
+- 2026-04-28: All 9 ACs verified green: 47 new tests pass, ruff clean, mypy --strict clean, full suite (88 tests) green.
+- 2026-04-28: Self-review completed. No out-of-scope changes, no new dependencies, no TODO/FIXME.
 
 ---
 
