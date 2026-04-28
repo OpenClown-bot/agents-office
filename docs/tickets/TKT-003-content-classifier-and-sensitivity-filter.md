@@ -2,7 +2,7 @@
 id: TKT-003
 title: "Content classifier and sensitivity filter"
 version: 0.1.1
-status: draft
+status: ready
 arch_ref: ARCH-001@0.1.1
 component: "Classifier"
 depends_on: [TKT-001]
@@ -10,7 +10,7 @@ blocks: [TKT-004]
 estimate: M
 assigned_executor: "glm-5.1"
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-04-26
 ---
 
 # TKT-003: Content classifier and sensitivity filter
