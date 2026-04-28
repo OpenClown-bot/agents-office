@@ -2,7 +2,7 @@
 id: TKT-003
 title: "Content classifier and sensitivity filter"
 version: 0.1.1
-status: in_progress
+status: in_review
 arch_ref: ARCH-001@0.1.1
 component: "Classifier"
 depends_on: [TKT-001]
