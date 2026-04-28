@@ -1,14 +1,14 @@
 ---
 id: ARCH-001
 title: "SMM Autopilot MVP"
-version: 0.1.1
-status: approved
+version: 0.1.2
+status: draft
 prd_ref: PRD-001@0.1.0
 owner: "@yourmomsenpai"
 author_model: "claude-opus-4.6-thinking"
 created: 2026-04-24
-updated: 2026-04-24
-adrs: [ADR-001, ADR-002, ADR-003, ADR-004]
+updated: 2026-04-28
+adrs: [ADR-001, ADR-002, ADR-003, ADR-004, ADR-005]
 tickets: [TKT-001, TKT-002, TKT-003, TKT-004, TKT-005a, TKT-005b, TKT-005c, TKT-006, TKT-007, TKT-008, TKT-009]
 ---
 
@@ -18,6 +18,8 @@ tickets: [TKT-001, TKT-002, TKT-003, TKT-004, TKT-005a, TKT-005b, TKT-005c, TKT-
 
 Implements: PRD-001@0.1.0 §1–§8 (Problem Statement, Goals G1–G3, User Stories US-1 through US-5, Technical Envelope, Risks).
 Does NOT implement: PRD-001@0.1.0 §3 Non-Goals (NG1–NG11), §10 Out of Scope (Dzen, VK, metrics ingestion, AI advisor, evergreen reposts, analytics-driven posting, autonomous source curation, non-text modalities).
+
+Revision 0.1.2 is a clarification bump over ARCH-001@0.1.1. It resolves the deferred review debts listed in `docs/backlog/ARCH-001-v0.1.2-debts.md`, records the OpenClaw / Awesome Skills evaluation in ADR-005@0.1.2, and keeps the MVP architecture on the existing Python pipeline rather than introducing OpenClaw as a runtime orchestrator.
 
 ### Trace Matrix
 
@@ -36,12 +38,14 @@ Every component traces to ≥1 PRD row. Every PRD Goal/US has ≥1 component. No
 
 ## 2. Architecture Overview
 
-The system is a set of cooperating Python async services running inside a single Docker Compose stack on the shared Hetzner VPS. All services share a single SQLite database file and communicate via an in-process async task queue (no external broker). A single Telegram bot serves as both the PO approval interface and the publishing channel.
+The system is a set of cooperating Python async services running inside a single Docker Compose stack on the shared Hetzner VPS. All services share a single SQLite database file and communicate via bounded in-process async queues plus database status transitions (no external broker). A single Telegram bot serves as both the PO approval interface and the publishing channel.
+
+OpenClaw is not part of the MVP runtime. ADR-005@0.1.2 evaluated OpenClaw Gateway, plugins, cron, Telegram support, and relevant Awesome OpenClaw Skills. The decision is to keep OpenClaw as future integration prior art only, because adding a Node Gateway / skill runtime would create a second scheduler, second state surface, and broader supply-chain boundary without replacing the PRD-specific ingestion, classification, factuality, approval, cadence, and official-API publishing logic.
 
 ```mermaid
 graph TD
     subgraph "Hetzner VPS (4c / 8GB)"
-        subgraph "SMM Autopilot Stack (≤3 CPU / ≤6 GB)"
+        subgraph "SMM Autopilot Stack (≤2 CPU / ≤4 GB normal; ≤3 CPU / ≤6 GB backstop)"
             SI[SourceIngester] -->|raw items| CL[Classifier]
             SD[SourceDiscovery] -->|candidate sources| AB
             CL -->|classified items| DG[DraftGenerator]
@@ -76,8 +80,9 @@ graph TD
 - **Inputs:** Source configuration (managed by PO via ApprovalBot commands, stored in DB). RSS XML, Telegram channel posts, web page HTML.
 - **Outputs:** `RawItem` rows in the database with `source_id`, `external_id`, `title`, `body`, `url`, `image_url`, `published_at`, `ingested_at`.
 - **LLM usage:** None.
-- **State:** SQLite `raw_items` table. Deduplication by `(source_id, external_id)`.
-- **Failure modes:** Source unreachable → log warning, skip, retry on next poll cycle. Malformed RSS/HTML → log error, skip item, continue. Telegram API error → bounded retry with exponential backoff (3 attempts, max 60s).
+- **State:** SQLite `sources` and `raw_items` tables. Deduplication by `(source_id, external_id)`. Telegram sources persist `last_cursor` as the last processed `update_id`; the next poll uses `offset=last_cursor+1` to avoid re-reading the same Bot API backlog. Web-page sources intentionally use a stable `external_id` derived from the URL, so a configured web page is captured once; recurring diff-based re-ingestion is out of MVP scope unless the PO files a PRD change.
+- **External privilege assumption:** For Telegram source channels, the ingestion bot must either be an admin/member that receives channel updates through Bot API or the channel posts must be forwarded to the bot by a PO-controlled automation. No MTProto user-session scraping, private-channel scraping, browser automation, or unofficial API path is allowed.
+- **Failure modes:** Source unreachable → log warning, skip, retry on next poll cycle. Malformed RSS/HTML → log error, skip item, continue. Telegram API error → bounded retry with exponential backoff (3 attempts, max 60s). Backlog above the queue limits in §4 → pause non-time-sensitive polling until the backlog drains.
 
 ### 3.2 Classifier
 - **Responsibility:** Classify each raw item against the fixed taxonomy (privacy / circumvention / platform-policy / competitors / product-launches / other), determine time sensitivity, and determine political sensitivity using the PO-maintained static keyword list. Items matching the first five categories enter the draft queue. Items matching sensitivity keywords are flagged `is_sensitive=true`.
@@ -100,11 +105,12 @@ graph TD
 
 ### 3.4 ApprovalBot
 - **Responsibility:** Telegram bot that serves as the PO's single admin interface. Provides: (a) approval queue with inline keyboard for approve-A / approve-B / edit / reject / defer per draft, (b) sensitive-item sub-queue with two-step confirmation, (c) source-list CRUD commands, (d) cadence configuration commands, (e) channel credential management commands, (f) source-discovery candidate approval.
-- **Inputs:** Telegram `callback_query` and `/command` messages from the PO's Telegram user ID (hardcoded allowlist of 1). Draft rows with `status=ready` or `status=unverified`.
+- **Inputs:** Telegram `callback_query` and `/command` messages from the PO's numeric Telegram user ID, supplied as `APPROVAL_TELEGRAM_USER_ID` in `.env` and loaded into a singleton allowlist. Draft rows with `status=ready` or `status=unverified`.
 - **Outputs:** Updates `Draft.status` to `approved` (with chosen variant), `rejected`, or `deferred`. Updates source/cadence/channel configuration in DB. Sends formatted messages to PO with inline keyboards.
 - **LLM usage:** None.
 - **State:** Bot state managed via Telegram `callback_data` and SQLite. Long polling via `getUpdates`.
-- **Failure modes:** Telegram API unreachable → bounded retry (5 attempts, exponential backoff up to 120s), then log critical and continue polling. PO sends unrecognized command → reply with help text. Concurrent button presses on same draft → idempotent update (first write wins, subsequent attempts return "already processed").
+- **Authorization model:** Authorization is by Telegram user ID, not by group admin role or username. Unknown users and unknown groups are ignored before command parsing. If the bot is placed in a group, the group chat ID must also be explicitly allowlisted and every mutating callback still requires the PO user ID. Callback data carries only opaque draft/action IDs; every callback reloads the draft and re-checks the sender allowlist before mutation.
+- **Failure modes:** Telegram API unreachable → bounded retry (5 attempts, exponential backoff up to 120s), then log critical and continue polling. PO sends unrecognized command → reply with help text. Concurrent button presses on same draft → idempotent update (first write wins, subsequent attempts return "already processed"). Unauthorized callback → no state mutation and security warning log.
 
 ### 3.5 Scheduler
 - **Responsibility:** Schedule approved posts for publishing within cadence ceilings. Enforce per-channel cadence (≤1 post/day per channel), global kill-switch, and per-channel enable/disable. Use static best-practice time windows per channel. Auto-expire time-sensitive items that exceed the 24h freshness SLA. Re-queue retryable draft-generation and publish failures within bounded retry limits.
@@ -112,6 +118,7 @@ graph TD
 - **Outputs:** `PublishJob` rows with `scheduled_at`, `channel_id`, `draft_id`, `status`. Expired items marked `status=expired`. Retryable `generation_failed` classified items reset to `status=classified`. Retryable failed publish jobs get a new `scheduled_at` in the next available channel window.
 - **LLM usage:** None.
 - **State:** SQLite `publish_jobs` table.
+- **Expiry rules:** Time-sensitive drafts expire at `source_published_at + 24h` or `created_at + 24h` when source publication time is unavailable. Non-time-sensitive drafts expire after 7 days in the approval queue. A PO defer action sets `deferred_until <= min(now+24h, expires_at)` and never extends the hard expiry. Expired drafts are marked `status=expired` and never auto-published.
 - **Failure modes:** No approved posts available → idle, no action. Cadence change by PO → re-evaluate queue within ≤1 hour (implemented as periodic check every 5 minutes). Draft generation failed → re-queue up to 3 attempts before alerting PO. Publish attempt failed after adapter-local retries → increment `PublishJob.retry_count`, set `scheduled_at` to the next available cadence window, and retry until `retry_count=max_retry_count`; after max retries, mark `status=failed` and alert PO. Clock skew → use UTC throughout.
 
 ### 3.6 ChannelPublishers (TelegramPublisher, XPublisher, ThreadsPublisher, InstagramPublisher)
@@ -147,6 +154,20 @@ graph TD
 8. **Recover:** `Scheduler` periodically resets retryable `generation_failed` classified items to `status=classified` and re-schedules retryable failed publish jobs into the next available channel window, bounded by each item's max retry count.
 9. **Discover:** `SourceDiscovery` runs periodically over recent `RawItem` bodies → extracts candidate source URLs → writes `SourceCandidate` for PO review in ApprovalBot.
 
+### 4.1 Queue Backpressure
+
+The application uses bounded in-process queues for immediate dispatch and SQLite status columns as the durable queue. Queue limits are part of the runtime contract, not optional tuning.
+
+| Queue / backlog | Limit | Backpressure behavior | Shed strategy |
+|---|---:|---|---|
+| DB write queue | 1,000 pending writes | Producers await the single writer for up to 30s, then fail the current item with retry metadata | No silent drop of already-accepted items |
+| `raw_items(status=pending)` | 1,000 rows | SourceIngester pauses non-time-sensitive polling until backlog <500 | Skip current poll cycle; retry next 15-minute interval |
+| `classified_items(status=classified)` | 500 rows | Classifier pauses new classification; DraftGenerator drains first | New raw items remain pending |
+| `drafts(status=ready|unverified|deferred)` | 500 rows | DraftGenerator pauses non-time-sensitive generation and alerts PO | No new drafts generated until queue <300 |
+| `publish_jobs(status=scheduled|failed retryable)` | 250 rows | Scheduler refuses new schedule creation and alerts PO | Approved drafts remain approved but unscheduled |
+
+Circuit breakers are per external dependency. Three consecutive recoverable failures from the same source, platform API, or LLM provider open the breaker for 15 minutes; the component logs once, increments a metric, and retries after the cool-down. Time-sensitive items are never discarded because of backpressure; they remain in SQLite until processed or expired by the Scheduler.
+
 ## 5. Data Model / Schemas
 
 ```yaml
@@ -162,6 +183,9 @@ Source:
   name: text
   is_active: boolean (default true)
   added_by: enum(po_manual, autodiscovery)
+  last_cursor: text (nullable)
+    # Telegram: last processed Bot API update_id.
+    # RSS/web: reserved for future ETag/Last-Modified/content cursor support.
   created_at: datetime
   updated_at: datetime
 
@@ -218,6 +242,7 @@ Draft:
   po_edit_text: text (nullable)
   is_sensitive: boolean
   approved_at: datetime (nullable)
+  deferred_until: datetime (nullable)
   expires_at: datetime (nullable)
   created_at: datetime
   updated_at: datetime
@@ -283,6 +308,21 @@ Metrics:
   # historical queries.  Total-period rows share period_date='1970-01-01'.
 ```
 
+### 5.1 Data Retention and Purge Policy
+
+SQLite growth is bounded by a daily maintenance job owned by Scheduler. The job runs after the last publish window in UTC and deletes rows only after their audit-retention window has elapsed.
+
+| Table | Retention | Purge / archive behavior |
+|---|---|---|
+| `RawItem` | 90 days after terminal classified/discarded/expired state | Delete rows not referenced by retained drafts or publish jobs |
+| `ClassifiedItem` | 90 days after terminal state, or as long as a retained draft references it | Delete only after dependent drafts are purged |
+| `Draft` | 180 days for approved/published drafts; 30 days for rejected/expired/deferred-expired drafts | Keep `po_edit_text`, chosen variant, citations, and status until retention elapses |
+| `PublishLog` | 365 days | Keep success/failure audit events for post-hoc ToS/factuality review |
+| `Metrics` | 400 days for daily/weekly/monthly rows; total rows retained forever | Delete old period rows; recompute totals is not required |
+| APScheduler job store | Until corresponding job terminal + 30 days | Scheduler removes orphaned one-shot jobs during maintenance |
+
+After purging, the job runs SQLite `wal_checkpoint(TRUNCATE)` weekly and `VACUUM` monthly when the database file exceeds 256 MB and the system is outside publish windows. If purge or vacuum fails, the job logs a warning and retries next day; it never blocks publishing.
+
 ## 6. External Interfaces
 
 | System | Protocol | Auth | Rate Limit | Failure Mode | Notes |
@@ -297,6 +337,18 @@ Metrics:
 | Free-tier LLM: GLM-4-Flash | HTTPS REST | API key | Free tier limits (source: BigModel platform) | Retry 2×; fallback to Qwen-Turbo | Primary for classification + drafting |
 | Free-tier LLM: Qwen-Turbo | HTTPS REST | API key | Free tier limits (source: Alibaba Cloud) | Retry 2×; fallback to keyword-only | Secondary / fallback |
 
+### 6.1 Channel Capability Split
+
+| Channel | Credential type | Static / OAuth | MVP capability | Disabled condition |
+|---|---|---|---|---|
+| Telegram approval bot | Bot token + `APPROVAL_TELEGRAM_USER_ID` | Static env config | PO approval queue, admin commands, alerts | Missing bot token or missing numeric PO user ID |
+| Telegram publisher | Bot token + target `chat_id` | Static env config | `sendMessage` / `sendPhoto` to PO-controlled channel | Bot not a channel admin or token invalid |
+| X publisher | OAuth app/account credentials | OAuth | Official X API post creation | Quota unavailable, paid-only write path, revoked/free tier removed |
+| Threads publisher | Meta app + long-lived token | OAuth | Official Threads Graph API publish flow | Missing app review/permission or token refresh failure |
+| Instagram publisher | Meta Business app + long-lived token | OAuth | Nice-to-have official Instagram Graph publish flow | Missing Business account, missing permissions, or token refresh failure |
+
+Static channels can be enabled at deploy time from `.env`. OAuth channels remain `pending_credentials` until the PO provisions credentials and explicitly enables the channel. No channel has a browser, cookie, scraping, MTProto user-session, or third-party scheduler fallback.
+
 ## 7. Tech Stack Decisions (linked ADRs)
 
 - **Language / Runtime:** Python 3.12 + asyncio (ADR-001@0.1.0)
@@ -310,6 +362,19 @@ Metrics:
 - **HTML parsing:** beautifulsoup4 + lxml — covered in ADR-001@0.1.0
 - **Containerization:** Docker + Docker Compose — no ADR needed (only viable option on shared VPS for resource isolation)
 - **LLM provider specificity:** PRD-001@0.1.0 defines LLM providers abstractly as free-tier; ARCH specifies concrete choice (GLM-4-Flash, Qwen-Turbo). PRD bump deferred.
+- **OpenClaw / skills runtime:** Not adopted for MVP runtime (ADR-005@0.1.2). OpenClaw Gateway, plugins, cron, Telegram channel support, and relevant Awesome OpenClaw Skills were evaluated as prior art; none replaces the PRD-specific Python pipeline without adding a second runtime, second scheduler state, and broader third-party skill trust boundary.
+
+### 7.1 OpenClaw / Awesome Skills Assessment Summary
+
+ADR-005@0.1.2 contains the full decision record and candidate inventory. The relevant Phase 0 skill scan covered social scheduling/publishing, RSS and news ingestion, Telegram/X research, content quality, SEO/GEO, human-in-the-loop approval, safety/audit, cron/backup/notification, browser automation, and OpenClaw ecosystem tools.
+
+| Candidate group | Examples evaluated | Outcome |
+|---|---|---|
+| Social posting / schedulers | `adaptlypost`, `postfast`, `postiz`, `publora`, `simplified-social-media`, `social-media-manager`, `x-agent`, `x-oauth-api`, `opentweet-x-poster` | Rejected for MVP runtime: too broad, third-party scheduler/API ambiguity, or missing PRD-specific official-API refusal and approval semantics. |
+| Browser/cookie automation | `agent-browser`, `super-browser`, `actionbook`, `camoufox`, `x-automation`, `instagram-scraper`, `weibo-manager`, `2captcha` | Explicitly rejected: browser automation and anti-detection paths conflict with PRD-001@0.1.0 NG3. |
+| RSS/news/source research | `freshrss-reader`, `rss-skill`, `feed-to-md`, `rss-digest`, `ak-rss-24h-brief`, `hfnews`, `search-cluster`, `openclaw-free-web-search`, `x-monitor`, `telegram-history`, `tg-mtproto-cli` | Useful inspiration only; MVP keeps Python ingestion with SQLite state and Bot API / public web constraints. |
+| Content quality / SEO/GEO | Aaron SEO/GEO bundle, `content-quality-auditor`, `domain-authority-auditor`, `entity-optimizer`, `seo-content-writer`, `geo-content-optimizer`, `brand-voice-profile` | Useful prompt/checklist prior art, not runtime dependencies; they do not enforce Russian-only, source-span validation, sensitivity, and channel constraints by construction. |
+| Approval/safety/ops | `agentgate`, `postwall`, `aegis-shield`, `pipelock`, `authensor-gateway`, `agent-audit-trail`, `skillguard-audit`, `casual-cron`, `gotify`, `n8n` | Patterns noted; custom ApprovalBot, deterministic validation, APScheduler, and SQLite audit remain simpler and lower risk for MVP. |
 
 ## 8. Observability
 
@@ -335,6 +400,8 @@ Metrics:
   - Period rollover: when a new day/week/month begins, the first incrementing event MUST insert a fresh row with the new `period_date` (value=1). Old rows remain for historical queries. Total rows (period_date='1970-01-01') are never reset.
   - PO can query via bot command `/stats` for a daily/weekly summary.
   - No Prometheus/Grafana in MVP — operational simplicity per PRD-001@0.1.0 §7 (single PO, no dev-ops rotation).
+  - TKT-009@0.1.1 must not add both a Prometheus exporter and node_exporter for MVP. If process/host telemetry is added later, CPU must be reported as either process CPU inside the SMM container or host CPU from node_exporter, not summed together.
+  - Delivery telemetry records only events the system can observe. `telegram_send_accepted` means Telegram Bot API accepted the send request; it does not mean user-visible delivery or read receipt. No `message_delivered` metric is emitted unless a platform provides a concrete delivery acknowledgement.
 - **Alerting:**
   - Critical alerts sent to PO via the ApprovalBot Telegram chat: adapter disabled, LLM budget exceeded, publish failure after all retries, freshness SLA breach.
   - Non-critical warnings logged only (source fetch failures, LLM retries).
@@ -352,7 +419,9 @@ Metrics:
   - Outbound only: Telegram API (443), X API (443), Meta API (443), RSS/web sources (80/443), LLM APIs (443).
   - Docker network: `smm-autopilot` bridge network, isolated from the VPN data plane containers.
 - **PO authentication:**
-  - ApprovalBot accepts commands only from a hardcoded Telegram user ID (the PO). All other messages are silently ignored.
+  - ApprovalBot accepts commands only from `APPROVAL_TELEGRAM_USER_ID`, a numeric Telegram user ID loaded from `.env` into a singleton allowlist. Usernames and group-admin status are not authorization inputs.
+  - If the approval bot is used in a group, the group chat ID must be explicitly allowlisted and the sender user ID must still equal `APPROVAL_TELEGRAM_USER_ID`.
+  - Telegram source-ingestion and publisher bots must have only the privileges they need: source bot can read configured public channel updates; publisher bot can post to the target channel. They are separate tokens from the approval bot when practical.
   - No web interface → no CSRF, XSS, or session management concerns.
 - **LLM prompt-injection mitigations:**
   - Shared escaping rule: before wrapping external source text in LLM delimiters, normalize to Unicode NFC, then XML-escape the three delimiter-forming characters in this order: `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`. Do not escape the wrapper tags themselves and do not unescape the source text before model submission. This makes literal `</user_content>` and `</source_text>` strings inert inside the wrapped block.
@@ -362,16 +431,20 @@ Metrics:
 - **Data at rest:**
   - SQLite database file stored on the VPS filesystem. No encryption at rest in MVP (the VPS disk is under PO control; data is not user PII — it's public news content and PO-authored posts).
   - API tokens in `.env` are readable only by the container user (file permissions 600).
+- **Third-party agent runtime / skills:**
+  - No OpenClaw Gateway, OpenClaw plugins, or third-party OpenClaw skills run in the MVP container. ADR-005@0.1.2 rejects them for this PRD scope because they would expand the trusted code/prompt surface without replacing the deterministic SMM controls.
+  - If a future PRD re-opens OpenClaw integration, every plugin/skill must be pinned to an exact version or commit, reviewed as trusted code, and passed through a dedicated security review before any production write path is enabled.
 
 ## 10. Deployment
 
 - **Runtime:** Docker Compose on Hetzner VPS (4c / 8 GB RAM shared with VPN infra).
 - **Resource budget:**
-  - CPU: `cpus: 2.0` (hard limit via Docker Compose `deploy.resources.limits`). Leaves ≥2 CPU cores for VPN. Well within the 3-core ceiling.
-  - RAM: `mem_limit: 4g` (hard limit). Leaves ≥4 GB for VPN + OS. Well within the 6 GB ceiling.
-  - Docker `mem_limit: 4g` is intentionally tighter than PRD-001@0.1.0's 6GB ceiling; systemd `MemoryMax=6G` is the outer safety net.
+  - Canonical application container limit: `cpus: 2.0` and `mem_limit: 4g` via Docker Compose. This is the design budget Executors must target.
+  - OS backstop: systemd slice `CPUQuota=300%` and `MemoryMax=6G`, matching PRD-001@0.1.0's maximum allowed SMM envelope and guaranteeing ≥1 CPU / ≥2 GB for the VPN data plane.
+  - The apparent `2 CPU / 4 GB` vs `3 CPU / 6 GB` discrepancy is intentional: Docker is the normal operating ceiling; systemd is the emergency hard ceiling. New MVP components must fit under `2 CPU / 4 GB` unless a future ARCH bump explicitly changes the canonical budget.
   - Estimated steady-state: ~200 MB RAM (Python process + SQLite), <0.5 CPU core (mostly idle, bursts during LLM calls and ingestion).
   - Peak (concurrent ingestion + classification + draft generation): ~800 MB RAM, ~1.5 CPU cores for <30 seconds.
+  - No OpenClaw Node Gateway process is deployed in MVP, so ADR-005@0.1.2 adds no runtime resource demand.
 - **Container structure:** Single Docker image, single container running all async services in one Python process. Justification: the workload is light and bursty; separate containers would waste RAM on duplicate Python runtimes. The async architecture provides logical separation.
 - **Rollback procedure:**
   1. `ssh vps` → `cd /opt/smm-autopilot`
@@ -385,7 +458,7 @@ Metrics:
 
 ## 11. Work Breakdown (tickets for Executor)
 
-Accepted risk: ApprovalBot remains a Telegram-only admin path in this epic, so Telegram outage blocks PO approval actions. Email-digest fallback is deferred to a future epic; this is acceptable for ARCH-001@0.1.1 because PRD-001@0.1.0 permits missing a single channel-day but forbids autonomous publishing.
+Accepted risk: ApprovalBot remains a Telegram-only admin path in this epic, so Telegram outage blocks PO approval actions. Email-digest fallback is deferred to a future epic; this is acceptable for ARCH-001@0.1.2 because PRD-001@0.1.0 permits missing a single channel-day but forbids autonomous publishing.
 
 | ID | Title | Depends on | Assigned executor |
 |---|---|---|---|
@@ -403,6 +476,24 @@ Accepted risk: ApprovalBot remains a Telegram-only admin path in this epic, so T
 
 TKT-005@0.1.0 is superseded by the three split approval-bot tickets and must not be executed. Dependency DAG is acyclic: TKT-001@0.1.1 is the root; TKT-002@0.1.1, TKT-003@0.1.1, TKT-006@0.1.1, TKT-009@0.1.1, and the approval queue core depend only on TKT-001@0.1.1 (parallelizable); TKT-004@0.1.1 depends on TKT-001@0.1.1 and TKT-003@0.1.1; the admin-command split depends on the approval queue core; TKT-008@0.1.1 depends on TKT-002@0.1.1; the discovery/stats split depends on the approval queue core and TKT-008@0.1.1; TKT-007@0.1.1 depends on the approval queue core, the admin-command split, and TKT-006@0.1.1.
 
+### 11.1 Ticket Impact for ARCH-001@0.1.2
+
+This ArchSpec revision does not edit ticket files or ticket statuses. It proposes the following impact for the orchestrator to apply when tickets are reopened or split.
+
+| Ticket | Current proposal | Impact |
+|---|---|---|
+| TKT-001@0.1.1 | Follow-up hardening needed if schema migration is still open | Add `Source.last_cursor` and `Draft.deferred_until` if not already present. Add explicit tests for retention metadata only if schema is touched. |
+| TKT-002@0.1.1 | Follow-up hardening ticket if already closed | Persist Telegram `last_cursor` / `update_id` and document stable URL-based web `external_id` behavior. No diff-based web re-ingestion in MVP. |
+| TKT&#45;005a@0.1.0 | Bump to `0.1.2` if reopened | Acceptance criteria should verify approval callbacks check `APPROVAL_TELEGRAM_USER_ID`, ignore unauthorized users, and handle idempotent double-clicks. |
+| TKT&#45;005b@0.1.0 | Bump to `0.1.2` if reopened | Admin commands must use numeric user-ID allowlist only; usernames and Telegram group-admin role do not authorize commands. |
+| TKT&#45;005c@0.1.0 | Bump to `0.1.2` if reopened | `/stats` must report only metrics the system can observe; no `message_delivered` metric without platform delivery ack. Discovery approval remains PO-gated. |
+| TKT-007@0.1.1 | Bump to `0.1.2` or add a small follow-up if already in progress | Implement expiry semantics, deferred-until behavior, bounded backpressure, circuit breakers, and retention purge scheduling. |
+| TKT-008@0.1.1 | No functional scope expansion | SourceDiscovery remains rules-based over recent retained `RawItem` bodies. No OpenClaw skill, web-search, or autonomous source curation is added. |
+| TKT-009@0.1.1 | Bump to `0.1.2` if reopened | Do not add Prometheus exporter + node_exporter together. Internal SQLite metrics and Docker logs remain MVP observability. Add purge/vacuum operational checks if owned by this ticket instead of TKT-007@0.1.1. |
+| TKT-003@0.1.1, TKT-004@0.1.1, TKT-006@0.1.1 | No change | Existing classifier, drafting, and official-API publisher boundaries remain valid. |
+
+Semantic-versioning guidance: Ticket frontmatter versions should only change when the ticket body changes. If a completed or in-review ticket is affected by this section, create a follow-up hardening ticket instead of silently rewriting its history.
+
 ## 12. Risks & Open Questions
 
 - **R1 (Medium): Free-tier LLM quality for Russian-language content.** GLM-4-Flash and Qwen-Turbo may produce lower-quality Russian text than paid models, risking G3 (<80% approval-without-edit). Mitigation: prompt engineering in TKT-004@0.1.1; PO monitors G3 metric; if G3 < 70% after 2 weeks, escalate to PO for paid-LLM budget allocation within $30/month cap.
@@ -410,15 +501,25 @@ TKT-005@0.1.0 is superseded by the three split approval-bot tickets and must not
 - **R3 (Low–Medium): Meta API token refresh complexity.** Threads/Instagram long-lived tokens expire every 60 days. If the PO doesn't refresh in time, the adapter silently disables. Mitigation: ApprovalBot sends a reminder 7 days before expiry.
 - **R4 (Low): X free-tier removal.** If X removes the free write tier, the adapter auto-disables and the PO is notified. No silent fallback. G2 is pro-rated per PRD-001@0.1.0.
 - **R5 (Low): Prompt injection via source content.** Malicious content in RSS/Telegram sources could attempt to hijack LLM classification or draft generation. Mitigation: delimiter-based isolation + JSON schema output validation + post-generation attribution check.
-- **R6 (Medium): Telegram ApprovalBot single-protocol SPOF.** If Telegram Bot API is unavailable, the PO cannot approve queued posts or adjust cadence. Mitigation: accepted risk for ARCH-001@0.1.1; no autonomous publishing occurs, stale time-sensitive items expire, and email-digest fallback is deferred to a future epic.
+- **R6 (Medium): Telegram ApprovalBot single-protocol SPOF.** If Telegram Bot API is unavailable, the PO cannot approve queued posts or adjust cadence. Mitigation: accepted risk for ARCH-001@0.1.2; no autonomous publishing occurs, stale time-sensitive items expire, and email-digest fallback is deferred to a future epic.
+- **R7 (Medium): Backpressure can reduce G2 volume during source or LLM outages.** Bounded queues intentionally pause work instead of consuming unbounded VPS resources. Mitigation: PO alert when queue thresholds are crossed; stale time-sensitive items expire instead of publishing late; missing a single channel-day is acceptable per PRD-001@0.1.0 §7.
+- **R8 (Low): Future OpenClaw integration pressure can reintroduce supply-chain and state-split risk.** OpenClaw and marketplace skills remain attractive for operator UX, but ADR-005@0.1.2 rejects runtime adoption for MVP. Mitigation: any future integration requires a new PRD/ADR, exact plugin/skill pinning, security review, and a single scheduler/state authority.
 - **Q_TO_BUSINESS:** All 8 Q_TO_BUSINESS items from the gap report have been answered by the PO. No unresolved questions remain.
+
+### 12.1 Migration Path
+
+- **From ARCH-001@0.1.1 to ARCH-001@0.1.2:** No runtime migration to OpenClaw. Existing Python/SQLite/APScheduler direction remains intact.
+- **Schema migration:** If not already implemented, add nullable `Source.last_cursor` and `Draft.deferred_until`; nullable additions are backward-compatible for existing rows.
+- **Operational migration:** Deploy retention purge as a scheduler maintenance job. First run must be dry-run logged, then enabled after confirming it would not remove referenced published drafts.
+- **Ticket migration:** Do not mutate completed ticket artifacts. Apply §11.1 through reopened ticket version bumps or small follow-up hardening tickets.
+- **Future OpenClaw migration trigger:** Only revisit after a PRD adds multi-channel operator control, OpenClaw-native skills, or a personal-assistant UX beyond Telegram approval.
 
 ---
 
 ## Handoff Checklist
 - [x] Each component has clear Input/Output
-- [x] All referenced ADRs exist and are `draft` or `proposed` (ADR-001@0.1.0 through ADR-004@0.1.0)
-- [x] Resource budget fits PRD Technical Envelope (2 CPU / 4 GB RAM hard limit < 3 CPU / 6 GB ceiling)
+- [x] All referenced ADRs exist and are `accepted` or `proposed` (ADR-001@0.1.0 through ADR-005@0.1.2)
+- [x] Resource budget fits PRD Technical Envelope (canonical 2 CPU / 4 GB Docker limit; 3 CPU / 6 GB systemd backstop)
 - [x] Work Breakdown lists independent tickets with explicit dependency graph (DAG verified acyclic)
 - [x] Observability and Security sections non-empty
 - [x] All PRD references pin to a specific version (PRD-001@0.1.0)
