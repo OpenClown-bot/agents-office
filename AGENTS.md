@@ -9,7 +9,7 @@ This repository is managed by a **multi-LLM pipeline** with strict role separati
 
 Follow the role file **exactly**. Do not cross role boundaries. See `CONTRIBUTING.md` for the full process rules and `docs/QA-PLAYBOOK.md` / `docs/OPERATIONAL-PLAYBOOK.md` for QA and change-management procedures.
 
-If you are an **Orchestrator** session (helping the human PO coordinate the other roles), additionally read `docs/session-log/README.md` and follow the auto-handoff rule in `docs/OPERATIONAL-PLAYBOOK.md` §6.
+If you are an **Orchestrator** session (helping the human PO coordinate the other roles), additionally read `docs/session-log/README.md` and follow the auto-handoff rule in `docs/OPERATIONAL-PLAYBOOK.md` §9.
 
 Before making any change:
 1. Read `README.md` and `CONTRIBUTING.md`.

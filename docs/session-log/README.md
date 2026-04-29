@@ -23,7 +23,7 @@ Example: `2026-04-28-session-1.md`, `2026-04-28-session-2.md`, `2026-05-02-sessi
 
 ### Cold handoff — auto-generated, no PO request needed
 
-The orchestrator MUST automatically write a `handoff-cold-devin.md`-based file under `docs/session-log/` after **every closed TKT cycle**. "Closed cycle" means: code PR + review PR are both merged into `main`, the ticket's status is `in_review` (artifact-immutable / PO-implicit-approved). This rule lives in `docs/OPERATIONAL-PLAYBOOK.md` §6 and is non-negotiable.
+The orchestrator MUST automatically write a `handoff-cold-devin.md`-based file under `docs/session-log/` after **every closed TKT cycle**. "Closed cycle" means: code PR + review PR are both merged into `main`, the ticket's status is `in_review` (artifact-immutable / PO-implicit-approved). This rule lives in `docs/OPERATIONAL-PLAYBOOK.md` §9 and is non-negotiable.
 
 This ensures a recent cold snapshot is always present in the repo, so if the PO suddenly runs out of Devin credits or the session crashes, they can open the latest `docs/session-log/*.md` file and migrate without any prep work.
 

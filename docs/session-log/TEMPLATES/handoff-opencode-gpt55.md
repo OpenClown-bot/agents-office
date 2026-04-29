@@ -243,7 +243,7 @@ gh pr merge <N> --merge --delete-branch
 ## When to write the next handoff
 
 Write a new handoff file under `docs/session-log/` when ANY of:
-- Just closed a TKT cycle (per OPERATIONAL-PLAYBOOK §6, **auto-generate cold handoff** — do not wait for PO to ask)
+- Just closed a TKT cycle (per OPERATIONAL-PLAYBOOK §9, **auto-generate cold handoff** — do not wait for PO to ask)
 - 500k context starts feeling tight (rough heuristic: >300k used, or 4+ hours of orchestration)
 - PO says "переезжаем"
 - PO says "переезжаем в Devin" — use a Devin template

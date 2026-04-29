@@ -162,11 +162,11 @@ If the pipeline gets stuck (e.g. Architect says "waiting for PRD clarification" 
 
 If the same deadlock recurs → pipeline design flaw; revisit role boundaries in CONTRIBUTING.md.
 
-## §6. Session-log discipline (orchestrator only)
+## §9. Session-log discipline (orchestrator only)
 
 The Orchestrator role assists the PO in coordinating the other LLM agents. Because the Orchestrator's own session is the most context-heavy one in the pipeline, it has a special obligation to keep its work *resumable* by another orchestrator session (a different Devin account, or opencode as fallback).
 
-### §6.1 Auto cold handoff after every closed TKT cycle
+### §9.1 Auto cold handoff after every closed TKT cycle
 
 A "closed TKT cycle" means: the code PR for a ticket AND the corresponding review PR are both merged into `main`. At that moment, the Orchestrator MUST, without being asked:
 
@@ -177,30 +177,30 @@ A "closed TKT cycle" means: the code PR for a ticket AND the corresponding revie
 
 This rule is **non-negotiable** because it is the ONLY mechanism that protects the PO from sudden token-budget exhaustion mid-cycle. If the orchestrator session dies between cycles, the PO can grab the latest cold file and resume in another session.
 
-### §6.2 Warm handoff on PO request
+### §9.2 Warm handoff on PO request
 
 When the PO uses any of the trigger phrases ("переезжаем", "warm handoff", "save everything", "сохрани контекст полностью"), the Orchestrator drops other work and produces a `handoff-warm-devin.md`-based file. Warm handoffs include the Texture / PO observations / open conversational threads that the cold version intentionally omits.
 
 The warm handoff file is committed to `docs/session-log/` AND its full content is reproduced in the chat reply, so the PO can copy directly from chat or from GitHub raw view.
 
-### §6.3 opencode handoff
+### §9.3 opencode handoff
 
-When the PO says "переезжаем в opencode", same as §6.2 but using `handoff-opencode-gpt55.md` template.
+When the PO says "переезжаем в opencode", same as §9.2 but using `handoff-opencode-gpt55.md` template.
 
-### §6.4 What the orchestrator MUST NEVER do
+### §9.4 What the orchestrator MUST NEVER do
 
 - Skip the auto cold handoff after a closed cycle, even if the PO didn't ask. Auto = automatic.
 - Tell the PO to "make sure X is set up" before pasting the handoff into a new session — the new agent's boot procedure must self-check and ask only for what's missing.
 - Include secrets in any handoff file (only secret *names*).
 - Write to `docs/session-log/` while a code PR / review PR is mid-flight in the cycle — wait until the cycle is closed.
 
-### §6.5 PO's expected experience
+### §9.5 PO's expected experience
 
 - Routine: PO sees `cold handoff written: docs/session-log/YYYY-MM-DD-session-N.md` after each cycle close. No action required.
 - Planned migration: PO says "переезжаем", Orchestrator outputs warm handoff content in chat, PO copies it into new session, new session boots itself.
 - Unplanned migration (credits gone): PO opens latest `docs/session-log/*.md` from GitHub, copies, pastes into new session, provides token if asked. Cold version has all formal state — no warm texture preserved.
 
-## §9. Retiring an epic
+## §10. Retiring an epic
 
 When an epic is "done" (code in production, PRD goals met):
 

@@ -2,7 +2,7 @@
 
 > **Template instructions (delete this block when filling out):**
 > Use this when the PO explicitly asked to migrate ("переезжаем"), or when significant emotional/conversational texture has accumulated in the session that the next agent needs to preserve continuity.
-> **Generated on demand only** — the orchestrator does NOT auto-write warm handoffs (cold version is auto-written after each TKT cycle per OPERATIONAL-PLAYBOOK §6). Warm version is the PO's explicit request: "переезжаем", "save everything", "запиши всё что знаешь обо мне".
+> **Generated on demand only** — the orchestrator does NOT auto-write warm handoffs (cold version is auto-written after each TKT cycle per OPERATIONAL-PLAYBOOK §9). Warm version is the PO's explicit request: "переезжаем", "save everything", "запиши всё что знаешь обо мне".
 > Includes everything from `handoff-cold-devin.md` PLUS texture sections.
 
 ---
