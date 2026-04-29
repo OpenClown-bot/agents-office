@@ -154,12 +154,35 @@ async def test_usage_tracker_record_error(db: Database) -> None:
     tracker = UsageTracker(db)
     await tracker.record_error()
 
-    rows = await db.execute_read(
+    error_rows = await db.execute_read(
         "SELECT period, value FROM metrics WHERE name = 'llm_errors' ORDER BY period"
     )
-    assert len(rows) == 4
-    for row in rows:
+    assert len(error_rows) == 4
+    for row in error_rows:
         assert row["value"] == 1
+
+    calls_rows = await db.execute_read(
+        "SELECT period, value FROM metrics WHERE name = 'llm_calls_total' ORDER BY period"
+    )
+    assert len(calls_rows) == 4
+    for row in calls_rows:
+        assert row["value"] == 1
+
+
+@pytest.mark.asyncio
+async def test_usage_tracker_failed_call_increments_both_metrics(db: Database) -> None:
+    tracker = UsageTracker(db)
+    await tracker.record_error()
+
+    calls_rows = await db.execute_read(
+        "SELECT value FROM metrics WHERE name = 'llm_calls_total' AND period = 'total'"
+    )
+    assert calls_rows[0]["value"] == 1
+
+    error_rows = await db.execute_read(
+        "SELECT value FROM metrics WHERE name = 'llm_errors' AND period = 'total'"
+    )
+    assert error_rows[0]["value"] == 1
 
 
 @pytest.mark.asyncio

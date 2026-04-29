@@ -75,6 +75,13 @@ class UsageTracker:
         for period, period_date in period_dates.items():
             await self._db.execute_write(
                 "INSERT INTO metrics (name, period, value, period_date, updated_at) "
+                "VALUES ('llm_calls_total', ?, 1, ?, ?) "
+                "ON CONFLICT (name, period, period_date) DO UPDATE SET "
+                "value = value + 1, updated_at = excluded.updated_at",
+                (period, period_date, now),
+            )
+            await self._db.execute_write(
+                "INSERT INTO metrics (name, period, value, period_date, updated_at) "
                 "VALUES ('llm_errors', ?, 1, ?, ?) "
                 "ON CONFLICT (name, period, period_date) DO UPDATE SET "
                 "value = value + 1, updated_at = excluded.updated_at",
