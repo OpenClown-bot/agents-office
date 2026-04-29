@@ -2,7 +2,7 @@
 id: TKT-004
 title: "Draft generation service"
 version: 0.1.2
-status: in_progress
+status: in_review
 arch_ref: ARCH-001@0.1.2
 component: "DraftGenerator"
 depends_on: [TKT-001, TKT-003]
@@ -69,14 +69,26 @@ Implement the DraftGenerator component that produces 1–3 channel-tailored Russ
 - All SQL parameterised (no f-string SQL)
 
 ## 8. Definition of Done
-- [ ] All Acceptance Criteria pass
-- [ ] PR opened with link to this TKT in description
-- [ ] No TODO / FIXME left in code
-- [ ] Executor filled §10 Execution Log
+- [x] All Acceptance Criteria pass
+- [x] PR opened with link to this TKT in description
+- [x] No TODO / FIXME left in code
+- [x] Executor filled §10 Execution Log
 
 ## 9. Questions (empty at creation; Executor appends here if blocked — do NOT start code)
 
 ## 10. Execution Log (Executor fills as work proceeds)
+
+- 2026-04-29: Branch `exec/TKT-004-draft-generation-service` created, status set to in_progress
+- 2026-04-29: Implemented `src/smm_autopilot/drafting/__init__.py` — lazy-import pattern matching classifier
+- 2026-04-29: Implemented `src/smm_autopilot/drafting/prompts.py` — system prompt with XML-escaped source_text delimiters, injection mitigation, HEADLINE/CTA/TONE/ATTRIBUTION checklist (inspired by Aaron-SEO structural patterns per ADR-005), Russian-only enforcement, char_limit support
+- 2026-04-29: Implemented `src/smm_autopilot/drafting/validation.py` — deterministic attribution validation via source-span keyword overlap + citation-URL matching; min_overlap=1 for cross-language (Russian draft vs English source) keyword matching
+- 2026-04-29: Implemented `src/smm_autopilot/drafting/service.py` — DraftGeneratorService: iterates classified items × active channels, calls LLMClient.classify, parses JSON response, enforces char_limit, validates attribution (ready/unverified), persists drafts, handles retry with generation_failed + retry counters, increments metrics
+- 2026-04-29: Implemented `tests/test_drafting.py` — 36 tests covering all 7 ACs
+- 2026-04-29: ruff check clean, mypy --strict clean
+- 2026-04-29: Coverage 94% (well above 80% threshold)
+- 2026-04-29: Decision: min_overlap=1 for attribution validation — cross-language drafts (Russian) vs source (English) share few exact word matches; a single shared keyword (e.g. "vpn") suffices for deterministic attribution
+- 2026-04-29: Decision: reused LLMClient.classify() for draft generation (same system/user prompt pattern as classification) — no new method needed on LLMClient, per constraint
+- 2026-04-29: Status set to in_review
 
 ---
 
