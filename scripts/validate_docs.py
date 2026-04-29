@@ -30,7 +30,7 @@ DOCS_ROOT = REPO_ROOT / "docs"
 
 # Directories under docs/ that are NOT typed artifact directories (no
 # frontmatter required). Files inside these are free-form meta docs.
-FREEFORM_DIRS = {"prompts"}
+FREEFORM_DIRS = {"prompts", "session-log"}
 # Free-form top-level docs/*.md files (non-artifact reference material).
 FREEFORM_TOPLEVEL = {"QA-PLAYBOOK.md", "OPERATIONAL-PLAYBOOK.md"}
 
