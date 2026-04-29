@@ -7,9 +7,10 @@ This file defines **how humans and LLMs collaborate** in this repo. These are no
 | Role | Model | Writes | Never writes |
 |---|---|---|---|
 | Product Owner (human) | — | Anything (final authority) | — |
-| Business Planner | Opus 4.7 (Claude.ai web) | `docs/prd/` | `docs/architecture/`, `src/` |
-| Tech Architect | Opus 4.6 Thinking | `docs/architecture/`, `docs/tickets/` | `docs/prd/`, `src/` |
-| Reviewer | Kimi K2.6 (opencode) | `docs/reviews/` | Everything else |
+| Business Planner | Devin (webapp, separate session) | `docs/prd/` | `docs/architecture/`, `src/` |
+| Tech Architect | GPT-5.5 (opencode) | `docs/architecture/`, `docs/tickets/`, `docs/prompts/` | `docs/prd/`, `src/` |
+| Orchestrator (PO assistant) | Devin (webapp) | `docs/session-log/`, `docs/backlog/` (light edits / new entries), ticket frontmatter `status` promotions only | `src/`, formal artifact bodies (PRD/ARCH/ADR/RV), `docs/prompts/` |
+| Reviewer | Kimi K2.6 (opencode) | `docs/reviews/` | Everything else, **NEVER `status: approved`** |
 | Code Executor (primary) | GLM 5.1 (opencode) | `src/`, `tests/`, may append to `docs/tickets/<id>.md#Execution Log` and `docs/questions/` | `docs/prd/`, `docs/architecture/`, anything outside assigned ticket's `In Scope` |
 | Code Executor (parallel) | Qwen 3.6 Plus (opencode) | Same as primary | Same as primary |
 | Code Executor (specialist) | Codex GPT 5.3 | Same as primary | Same as primary |
