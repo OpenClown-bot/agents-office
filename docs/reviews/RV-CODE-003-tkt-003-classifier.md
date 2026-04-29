@@ -65,11 +65,11 @@ The PR implements the TKT-003@0.1.1 classifier and LLM orchestration layers with
 |---|---|---|
 | **F-B1** | **resolved** | `UsageTracker.record_error()` (`usage.py:76-82`) now increments `llm_calls_total` alongside `llm_errors`. New test `test_usage_tracker_failed_call_increments_both_metrics` (49/49 pass) asserts both counters increase on failure. |
 | **F-B2** | **resolved** | `ClassifierService._classify_item` (`service.py:147-171`) now catches `aiosqlite.IntegrityError` on duplicate `INSERT`, logs the collision, and continues with `raw_item` status update + metric increment. New test `test_classify_pending_recovers_from_crash_mid_transaction` passes. |
-| **F-S1** | **acknowledged-deferred** | Executor log states deferred to TKT-003a. |
-| **F-S2** | **acknowledged-deferred** | Executor log states deferred to TKT-003a. |
-| **F-S3** | **acknowledged-deferred** | Executor log states deferred to TKT-003a. |
-| **F-S4** | **acknowledged-deferred** | Executor log states deferred to TKT-003a. |
-| **F-S5** | **acknowledged-deferred** | Executor log states deferred to TKT-003a. |
+| **F-S1** | **acknowledged-deferred** | Executor log states deferred to a follow-up ticket. |
+| **F-S2** | **acknowledged-deferred** | Executor log states deferred to a follow-up ticket. |
+| **F-S3** | **acknowledged-deferred** | Executor log states deferred to a follow-up ticket. |
+| **F-S4** | **acknowledged-deferred** | Executor log states deferred to a follow-up ticket. |
+| **F-S5** | **acknowledged-deferred** | Executor log states deferred to a follow-up ticket. |
 
 ### Verification log
 
@@ -77,7 +77,7 @@ The PR implements the TKT-003@0.1.1 classifier and LLM orchestration layers with
 - `python3 -m ruff check src/smm_autopilot/classifier/ src/smm_autopilot/llm/ tests/test_classifier.py tests/test_llm_client.py` → **clean**.
 - `python3 -m mypy src/smm_autopilot/classifier/ src/smm_autopilot/llm/ --strict` → **clean**.
 - `python3 scripts/validate_docs.py` → **all 22 artifacts green** (review file on `rv/RV-CODE-003` branch not yet merged; validated separately).
-- §10 Execution Log: bare `TKT-001` reference **pinned** to `TKT-001@0.1.1`. F-S1–F-S4 **acknowledged and deferred to TKT-003a** per log entries 2026-04-28.
+- §10 Execution Log: `TKT-001@0.1.1` reference was pinned. F-S1–F-S4 **acknowledged and deferred to a follow-up ticket** per log entries 2026-04-28.
 
 ### Summary
-Blocking defects F-B1 and F-B2 are resolved with targeted code changes and new tests. Non-blocking findings F-S1 through F-S5 are acknowledged by the Executor and deferred to a follow-up TKT-003a. Test count increased from 47 → 49, ruff/mypy/validate_docs all clean. Verdict: **pass_with_changes**.
+Blocking defects F-B1 and F-B2 are resolved with targeted code changes and new tests. Non-blocking findings F-S1 through F-S5 are acknowledged by the Executor and deferred to a follow-up ticket. Test count increased from 47 → 49, ruff/mypy/validate_docs all clean. Verdict: **pass_with_changes**.
