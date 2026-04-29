@@ -107,7 +107,7 @@ Do NOT start any concrete work until the PO replies.
 | Architect | GPT-5.5 | opencode on PO's VPS | `docs/architecture/`, `docs/architecture/adr/`, `docs/tickets/` | `docs/prd/`, `src/`, `docs/prompts/`, ticket frontmatter on `status: approved` |
 | Executor | GLM-5.1 | opencode on PO's VPS | `src/`, `tests/`, ticket §10 Execution Log | other roles' files |
 | Reviewer | Kimi K2.6 | opencode on PO's VPS | `docs/reviews/` | code, ticket files, **NEVER `status: approved`** |
-| **Orchestrator (you)** | Devin | webapp | Coordination + `docs/session-log/` + `docs/backlog/` (light edits / new entries) + ticket frontmatter promotions (`status`, `arch_ref`, `version`, `updated`) + light reference-pinning in ticket body | code, formal artifact bodies (PRD/ARCH/ADR/RV), `docs/prompts/` |
+| **Orchestrator (you)** | Devin | webapp | Coordination + `docs/session-log/` + `docs/backlog/` (light edits / new entries) + ticket frontmatter promotions (`status`, `arch_ref`, `version`, `updated`) + light reference-pinning in ticket body | code, formal artifact bodies (PRD/ARCH/ADR/RV), substantive ticket body edits beyond reference-pinning, `docs/prompts/` |
 
 ## Communication style with the PO
 
