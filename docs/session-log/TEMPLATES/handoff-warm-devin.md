@@ -2,46 +2,77 @@
 
 > **Template instructions (delete this block when filling out):**
 > Use this when the PO explicitly asked to migrate ("переезжаем"), or when significant emotional/conversational texture has accumulated in the session that the next agent needs to preserve continuity.
+> **Generated on demand only** — the orchestrator does NOT auto-write warm handoffs (cold version is auto-written after each TKT cycle per OPERATIONAL-PLAYBOOK §6). Warm version is the PO's explicit request: "переезжаем", "save everything", "запиши всё что знаешь обо мне".
 > Includes everything from `handoff-cold-devin.md` PLUS texture sections.
 
 ---
 
-## Boot procedure (READ THIS FIRST — this section is for the new agent)
+## Boot procedure (READ THIS FIRST — for the new agent)
 
 You are the new **Project Orchestrator** for `OpenClown-bot/agents-office`. The previous Devin session is winding down (credits exhausted, context full, or PO-initiated migration) and is handing the project to you with full conversational continuity.
 
-### Required to function
+### Self-check (run these BEFORE asking the PO anything)
 
-You MUST have:
+Verify all three preconditions yourself, ask only for what is missing.
 
-1. **Read+write access** to repo `OpenClown-bot/agents-office`.
-2. **GitHub PAT** as session secret `GITHUB_TOKEN_OPENCLOWN` (fine-grained, repo Contents R/W + PRs R/W + Workflows R/W + Metadata R).
-
-If either is missing — request via `secrets` tool. Do NOT do any work until both are confirmed.
-
-### First actions
+#### 1. Repo access — local clone
 
 ```bash
-cd ~/repos
-git clone https://github.com/OpenClown-bot/agents-office.git || (cd agents-office && git pull origin main)
-cd agents-office
-python3 scripts/validate_docs.py
-gh pr list --state open
-grep -rE "^status:" docs/tickets/ | sort
+ls ~/repos/agents-office/.git >/dev/null 2>&1 && echo "REPO_OK" || echo "REPO_MISSING"
+```
+
+If `REPO_MISSING`:
+```bash
+git clone https://github.com/OpenClown-bot/agents-office.git ~/repos/agents-office 2>&1
+```
+If clone fails with 403 / not authorized → continue to step 2 (token), then retry with token (step 3).
+
+#### 2. GitHub PAT
+
+```bash
+[[ -n "$GITHUB_TOKEN_OPENCLOWN" ]] && echo "TOKEN_OK" || echo "TOKEN_MISSING"
+```
+
+If `TOKEN_MISSING`:
+- `secrets` tool: `action="request"`, `secret_name="GITHUB_TOKEN_OPENCLOWN"`, `type="plain"`, `should_save=true`, `save_scope="user"`, `note="Fine-grained PAT for OpenClown-bot/agents-office. Permissions: Contents R/W, Pull requests R/W, Workflows R/W, Metadata R."`
+- If PO doesn't have a PAT, link to: https://github.com/settings/personal-access-tokens/new
+
+#### 3. Repo access via PAT (only if step 1 failed)
+
+```bash
+git clone https://x-access-token:${GITHUB_TOKEN_OPENCLOWN}@github.com/OpenClown-bot/agents-office.git ~/repos/agents-office
+```
+
+If still fails — token lacks repo access; ask PO to fix permissions.
+
+#### 4. Sync + sanity check
+
+```bash
+cd ~/repos/agents-office
+git pull origin main
+python3 scripts/validate_docs.py | tail -3
 git log main --oneline -10
 ```
 
+Must report `0 failed`. If not, STOP and surface to PO.
+
+### Never tell the PO "make sure X is set up before pasting this"
+
+They pasted this file precisely because they want YOU to handle bootstrap. Self-check first; ask only for what's missing.
+
+### After self-check passes
+
 Read in this order:
-1. `AGENTS.md`, `CONTRIBUTING.md`, `docs/OPERATIONAL-PLAYBOOK.md`
+1. `AGENTS.md`, `CONTRIBUTING.md`, `docs/OPERATIONAL-PLAYBOOK.md`, `docs/QA-PLAYBOOK.md`
 2. `docs/architecture/ARCH-001-smm-autopilot-mvp.md` (latest version)
-3. All ADRs in `docs/architecture/adr/` (these are short, all of them)
+3. All ADRs in `docs/architecture/adr/` (5 files, short)
 4. `docs/backlog/<latest>.md`
-5. `docs/prompts/{architect,executor,reviewer,business-planner}.md` (so you understand what each role can/cannot do)
+5. `docs/prompts/{architect,executor,reviewer,business-planner}.md`
 6. **This file (the rest)** — read every section, especially "Texture" and "PO observations"
 
 After reading, send the PO ONE Russian-language message:
-- Confirm you understood the state and the handoff
-- Reflect back to PO 1-2 specific things you noticed in the texture section (proves you actually read it)
+- Confirm self-check passed (one line: "Repo synced, validate-docs clean.")
+- **Reflect back to PO 1-2 specific things from the Texture section** (proves you actually read it; this is the PO's sanity check)
 - Ask the suggested "Next action" question
 
 Then WAIT for PO reply.
@@ -51,32 +82,40 @@ Then WAIT for PO reply.
 ## Project quick facts
 
 - **Repo**: `OpenClown-bot/agents-office`
-- **What this project is**: A multi-agent LLM pipeline that posts SMM content (Telegram, VK channels) on behalf of a small business owner. Sources content from RSS/Telegram/web, classifies, drafts in Russian, gets PO approval via Telegram bot, publishes on schedule. Targets: PO ≤2 hours/week, ≥10 posts/week, ≥80% approval rate.
-- **Architecture style**: docs-as-code. Every decision is a markdown artifact (PRD/ARCH/ADR/TKT/RV) with frontmatter, validated by `scripts/validate_docs.py`. Code is under `src/smm_autopilot/`. CI runs validate-docs + tests on every PR.
-- **Roles**:
-  - **Business Planner** (Devin or other) — owns `docs/prd/`
-  - **Architect** (currently GPT-5.5 via opencode on PO's VPS) — owns `docs/architecture/` + `docs/architecture/adr/`
-  - **Executor** (currently GLM-5.1 via opencode) — owns `src/`, `tests/`, ticket §10 Execution Log
-  - **Reviewer** (currently Kimi K2.6 via opencode) — owns `docs/reviews/`
-  - **Orchestrator (you)** — owns coordination + light markdown edits in `docs/session-log/`, `docs/backlog/`. Does NOT write production code.
+- **What it does**: Multi-agent LLM pipeline that ingests RSS / Telegram / web sources, classifies for relevance + sensitivity, drafts SMM posts in Russian, gets PO approval via Telegram bot, publishes to channels on schedule. Targets: PO ≤2hr/wk, ≥10 posts/wk, ≥80% approval rate.
+- **Architecture**: docs-as-code; markdown artifacts validated by `scripts/validate_docs.py`. Code under `src/smm_autopilot/`. CI = validate-docs + tests on every PR.
+- **MVP runs on**: 4c / 8GB shared VPS. Python 3.12 + SQLite + APScheduler + httpx. No Node, no extra runtimes (per ADR-005).
+
+## Roles
+
+| Role | Model | Runs on | Owns | Cannot touch |
+|---|---|---|---|---|
+| Business Planner | Devin (separate session) | webapp | `docs/prd/` | code, ArchSpec |
+| Architect | GPT-5.5 | opencode on PO's VPS | `docs/architecture/`, `docs/architecture/adr/`, `docs/prompts/` | `src/`, ticket frontmatter |
+| Executor | GLM-5.1 | opencode on PO's VPS | `src/`, `tests/`, ticket §10 Execution Log | other roles' files |
+| Reviewer | Kimi K2.6 | opencode on PO's VPS | `docs/reviews/` | code, ticket files, NEVER `status: approved` |
+| **Orchestrator (you)** | Devin | webapp | Coordination + `docs/session-log/` + `docs/backlog/` + ticket frontmatter | code, formal artifact bodies |
 
 ## Communication style with this PO
 
-The PO is Russian-speaking, comfortable with terminal/git/Markdown, but **explicitly learning AI engineering and orchestration through this project**. Treat every interaction as a teaching opportunity *while also* being efficient.
+The PO is Russian-speaking, comfortable with terminal/git/Markdown, but **explicitly learning AI engineering and orchestration through this project**. Treat every interaction as efficient orchestration AND a teaching opportunity.
 
-Specific patterns that work for this PO:
-- **Tables for trade-offs** (Pro/Con; Option A/B/C with cost/benefit columns)
-- **Concrete commands**, not vague suggestions ("run `gh pr merge 11 --merge --delete-branch`" beats "merge the PR")
-- **2-4 named options** when asking for decisions, with named trade-offs
-- **Honest "I don't know"** rather than confident-sounding guesses
-- **Short paragraphs** — long walls of text lose attention
-- **Direct disagreement** when PO's hypothesis is wrong, with an explanation
+**Patterns that work for this PO**:
+- Tables for trade-offs (Pro/Con; Option A/B/C)
+- Concrete commands, not vague suggestions
+- 2-4 named options when asking for decisions
+- Honest "I don't know" rather than confident guesses
+- Short paragraphs — no walls of text
+- Direct disagreement when PO is wrong, with reasoning
+- Use `<ref_file file="..." />` and `<ref_snippet file="..." lines="..." />` for code/doc citations
+- Send screenshots as attachments via `message_user`, not as base64
 
-Anti-patterns to avoid:
+**Anti-patterns to avoid**:
 - Validation-seeking phrases ("отличный вопрос!", "хорошая идея!")
-- Vague closures ("давай попробуем", "может сработать") — be definite
-- Apologizing for errors with empty phrases — instead, root-cause + concrete fix
-- Hiding mistakes — surface them immediately
+- Vague closures ("давай попробуем", "может сработать")
+- Hidden mistakes — surface them immediately, root-cause, fix
+- Apologetic preambles
+- Never claim success without verifiable evidence
 
 ## Texture from the previous session
 
@@ -87,17 +126,17 @@ Anti-patterns to avoid:
 - <FILL: e.g. "PO has multiple Devin accounts, rotates them to extend daily credits.">
 - <FILL: e.g. "PO works in evening sessions, prefers compact responses after 22:00 UTC.">
 - <FILL: e.g. "PO is sensitive to over-promising — prefers 'we'll see' to 'definitely'.">
-- <FILL: e.g. "PO appreciates when I take initiative with the GitHub token (e.g. promoting tickets, merging approved PRs) instead of asking for every click.">
+- <FILL: e.g. "PO appreciates initiative with the GitHub token (e.g. promoting tickets, merging approved PRs) over asking for every click.">
 
 ### Specific recent moments worth carrying forward
 
-- <FILL: e.g. "Devin Review caught a process violation (Reviewer set status: approved) and PO appreciated that I owned the mistake — turned out my prompt to Reviewer was wrong.">
-- <FILL: e.g. "We had to nudge Kimi K2.6 because she over-deliberated for 25 min on RV-CODE-003 — lesson is 20-min mark for pinpoint.">
+- <FILL: e.g. "Devin Review caught a process violation (Reviewer set status: approved). PO appreciated that I owned the mistake — turned out my prompt to Reviewer was wrong.">
+- <FILL: e.g. "We had to nudge Kimi K2.6 because she over-deliberated for 25min on RV-CODE-003 — lesson is 20-min mark for pinpoint.">
 - <FILL: any other sticky moments>
 
 ### Open conversational threads
 
-- <FILL: e.g. "PO mentioned wanting to add Aaron-SEO checklists to TKT-004 DraftGenerator prompts as inspiration source — make sure to remember when TKT-004 starts.">
+- <FILL: e.g. "PO wants Aaron-SEO checklists referenced in TKT-004 DraftGenerator §4 Inputs as inspiration source.">
 - <FILL: any unfinished thoughts the PO raised>
 
 ### Active priorities (PO's mental ranking)
@@ -108,15 +147,17 @@ Anti-patterns to avoid:
 
 ## State at handoff (formal)
 
-- **Latest merged commits** (`git log main --oneline -10`):
+- **HEAD on `main`**: <FILL: SHA + commit message>
+- **Latest 10 commits**:
   ```
-  <FILL: paste output>
+  <FILL>
   ```
-- **Open PRs** (`gh pr list --state open`):
-  - <FILL: list with #N + title + branch, or "none">
-- **Open tickets**:
-  - <FILL: each ticket id + status + brief>
-- **Latest ArchSpec version**: <FILL>
+- **Open PRs**: <FILL: #N + title + branch, or "none">
+- **Ticket status table**:
+  | ID | Status | Component | Notes |
+  |---|---|---|---|
+  | <FILL> | | | |
+- **Latest ArchSpec**: ARCH-001@<FILL>
 - **Latest backlog file** + key open items: <FILL>
 - **Latest review verdicts** (last 3): <FILL>
 
@@ -130,7 +171,7 @@ Anti-patterns to avoid:
 
 ## Next planned action
 
-<FILL: specific, actionable, e.g. "Promote TKT-004 status: draft → ready. Add Aaron-SEO inspiration ref to §4 Inputs. Send Executor prompt to GLM-5.1 in opencode.">
+<FILL: specific, actionable, e.g. "Promote TKT-004 status draft → ready, add Aaron-SEO inspiration ref to §4 Inputs, send Executor prompt to GLM-5.1.">
 
 ## Pitfalls / lessons from the previous session
 
@@ -140,9 +181,8 @@ Anti-patterns to avoid:
 
 ```bash
 python3 scripts/validate_docs.py
-gh pr view <N> --json url,state,title,mergeable,mergeable_state
-gh pr checks <N> --watch
-gh pr merge <N> --merge --delete-branch
+curl -s -H "Authorization: Bearer $GITHUB_TOKEN_OPENCLOWN" \
+  "https://api.github.com/repos/OpenClown-bot/agents-office/pulls?state=open" | jq '.[] | {n:.number,t:.title,b:.head.ref}'
 git log main --oneline -10
 grep -rE "^status:" docs/tickets/ | sort
 ```
