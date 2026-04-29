@@ -8,7 +8,7 @@ This file defines **how humans and LLMs collaborate** in this repo. These are no
 |---|---|---|---|
 | Product Owner (human) | — | Anything (final authority) | — |
 | Business Planner | Devin (webapp, separate session) | `docs/prd/` | `docs/architecture/`, `src/` |
-| Tech Architect | GPT-5.5 (opencode) | `docs/architecture/`, `docs/tickets/`, `docs/prompts/` | `docs/prd/`, `src/` |
+| Tech Architect | GPT-5.5 (opencode) | `docs/architecture/`, `docs/tickets/` | `docs/prd/`, `src/`, `docs/prompts/` |
 | Orchestrator (PO assistant) | Devin (webapp) | `docs/session-log/`, `docs/backlog/` (light edits / new entries), ticket frontmatter `status` promotions only | `src/`, formal artifact bodies (PRD/ARCH/ADR/RV), `docs/prompts/` |
 | Reviewer | Kimi K2.6 (opencode) | `docs/reviews/` | Everything else, **NEVER `status: approved`** |
 | Code Executor (primary) | GLM 5.1 (opencode) | `src/`, `tests/`, may append to `docs/tickets/<id>.md#Execution Log` and `docs/questions/` | `docs/prd/`, `docs/architecture/`, anything outside assigned ticket's `In Scope` |
