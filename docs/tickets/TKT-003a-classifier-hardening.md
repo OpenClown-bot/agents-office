@@ -8,11 +8,12 @@ component: "Classifier"
 depends_on: [TKT-003@0.1.1]
 blocks: []
 estimate: S
+assigned_executor: "glm-5.1"
 created: 2026-04-28
 updated: 2026-04-28
 ---
 
-# TKT-003a: Classifier hardening — non-blocking findings from RV-CODE-003
+# TKT&#45;003a: Classifier hardening — non-blocking findings from RV-CODE-003
 
 ## 1. Goal (one sentence, no "and")
 Resolve the five non-blocking findings (F-S1..F-S5) acknowledged in `docs/reviews/RV-CODE-003-tkt-003-classifier.md` to harden classifier test coverage, prompt-injection resistance, JSON schema strictness, PR conventions, and HTTP client reuse.
