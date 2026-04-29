@@ -2,7 +2,7 @@
 id: TKT-004
 title: "Draft generation service"
 version: 0.1.2
-status: ready
+status: in_progress
 arch_ref: ARCH-001@0.1.2
 component: "DraftGenerator"
 depends_on: [TKT-001, TKT-003]
