@@ -27,7 +27,7 @@ If `REPO_MISSING`:
   git clone https://github.com/OpenClown-bot/agents-office.git ~/repos/agents-office 2>&1
   ```
 - If clone succeeds (`REPO_OK` after retry) → continue to step 2.
-- If clone fails with 403 / "not authorized" / "repository not found" → this Devin account's GitHub integration does not have access. Continue to step 2 to acquire the PAT, then retry the clone using the PAT (see step 4).
+- If clone fails with 403 / "not authorized" / "repository not found" → this Devin account's GitHub integration does not have access. Continue to step 2 to acquire the PAT, then retry the clone using the PAT (see step 3).
 
 #### 2. GitHub PAT — `GITHUB_TOKEN_OPENCLOWN`
 
@@ -104,10 +104,10 @@ Do NOT start any concrete work until the PO replies.
 | Role | Model | Runs on | Owns | Cannot touch |
 |---|---|---|---|---|
 | Business Planner | Devin (separate session, occasional) | webapp | `docs/prd/` | code, ArchSpec |
-| Architect | GPT-5.5 | opencode on PO's VPS | `docs/architecture/`, `docs/architecture/adr/`, `docs/prompts/` | `src/`, ticket frontmatter |
+| Architect | GPT-5.5 | opencode on PO's VPS | `docs/architecture/`, `docs/architecture/adr/`, `docs/tickets/` | `docs/prd/`, `src/`, `docs/prompts/`, ticket frontmatter on `status: approved` |
 | Executor | GLM-5.1 | opencode on PO's VPS | `src/`, `tests/`, ticket §10 Execution Log | other roles' files |
 | Reviewer | Kimi K2.6 | opencode on PO's VPS | `docs/reviews/` | code, ticket files, **NEVER `status: approved`** |
-| **Orchestrator (you)** | Devin | webapp | Coordination + `docs/session-log/` + `docs/backlog/` light edits + ticket frontmatter status promotions | code, formal artifact bodies, `docs/prompts/` |
+| **Orchestrator (you)** | Devin | webapp | Coordination + `docs/session-log/` + `docs/backlog/` (light edits / new entries) + ticket frontmatter promotions (`status`, `arch_ref`, `version`, `updated`) + light reference-pinning in ticket body | code, formal artifact bodies (PRD/ARCH/ADR/RV), substantive ticket body edits beyond reference-pinning, `docs/prompts/` |
 
 ## Communication style with the PO
 
