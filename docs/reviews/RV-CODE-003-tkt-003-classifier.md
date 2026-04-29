@@ -5,6 +5,7 @@ target_pr: "https://github.com/OpenClown-bot/agents-office/pull/11"
 ticket_ref: TKT-003@0.1.1
 status: in_review          # in_review | approved | changes_requested
 reviewer_model: "kimi-k2.6"
+version: 0.1.1
 created: 2026-04-28
 ---
 
@@ -51,3 +52,32 @@ The PR implements the TKT-003@0.1.1 classifier and LLM orchestration layers with
 - **Concurrency:** `classify_pending` SELECTs all `pending` rows without `FOR UPDATE` or row-level locking. If two classifier instances run concurrently (e.g., overlapping scheduler ticks), they will classify the same raw items twice. The `UNIQUE(raw_item_id)` constraint on `classified_item` prevents duplicate data but causes a hard exception on retry, halting the batch. **Executor should add `FOR UPDATE` to the SELECT or document that the scheduler must enforce singleton execution.**
 - **Input validation:** Malformed RSS/XML is outside this ticket (TKT-002@0.1.1). The classifier input is already-ingested `RawItem` text; XML escaping mitigates prompt injection.
 - **Observability:** JSON-structured logs via `structlog` are present. Metrics counters (`items_classified`, `llm_calls_total`, `llm_tokens_total`, `llm_errors`) are incremented. However, budget-exceeded degradation logs only a warning (`client.py:30`); there is no Telegram alert to the PO as required by ARCH-001@0.1.1 §8 Alerting ("Critical alerts sent to PO via the ApprovalBot Telegram chat: adapter disabled, LLM budget exceeded"). **This should be a follow-up TKT or addressed here.**
+
+## Re-review (after Executor fixes)
+
+### Re-review verdict
+- [x] pass_with_changes
+- [ ] fail
+
+### Finding resolution status
+
+| Finding | Status | Evidence |
+|---|---|---|
+| **F-B1** | **resolved** | `UsageTracker.record_error()` (`usage.py:76-82`) now increments `llm_calls_total` alongside `llm_errors`. New test `test_usage_tracker_failed_call_increments_both_metrics` (49/49 pass) asserts both counters increase on failure. |
+| **F-B2** | **resolved** | `ClassifierService._classify_item` (`service.py:147-171`) now catches `aiosqlite.IntegrityError` on duplicate `INSERT`, logs the collision, and continues with `raw_item` status update + metric increment. New test `test_classify_pending_recovers_from_crash_mid_transaction` passes. |
+| **F-S1** | **acknowledged-deferred** | Executor log states deferred to TKT-003a. |
+| **F-S2** | **acknowledged-deferred** | Executor log states deferred to TKT-003a. |
+| **F-S3** | **acknowledged-deferred** | Executor log states deferred to TKT-003a. |
+| **F-S4** | **acknowledged-deferred** | Executor log states deferred to TKT-003a. |
+| **F-S5** | **acknowledged-deferred** | Executor log states deferred to TKT-003a. |
+
+### Verification log
+
+- `PYTHONPATH=src python3 -m pytest tests/test_classifier.py tests/test_llm_client.py -v` → **49 passed** (was 47; +2 new tests).
+- `python3 -m ruff check src/smm_autopilot/classifier/ src/smm_autopilot/llm/ tests/test_classifier.py tests/test_llm_client.py` → **clean**.
+- `python3 -m mypy src/smm_autopilot/classifier/ src/smm_autopilot/llm/ --strict` → **clean**.
+- `python3 scripts/validate_docs.py` → **all 22 artifacts green** (review file on `rv/RV-CODE-003` branch not yet merged; validated separately).
+- §10 Execution Log: bare `TKT-001` reference **pinned** to `TKT-001@0.1.1`. F-S1–F-S4 **acknowledged and deferred to TKT-003a** per log entries 2026-04-28.
+
+### Summary
+Blocking defects F-B1 and F-B2 are resolved with targeted code changes and new tests. Non-blocking findings F-S1 through F-S5 are acknowledged by the Executor and deferred to a follow-up TKT-003a. Test count increased from 47 → 49, ruff/mypy/validate_docs all clean. Verdict: **pass_with_changes**.
