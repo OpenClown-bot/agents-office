@@ -1,16 +1,16 @@
 ---
 id: TKT-004
 title: "Draft generation service"
-version: 0.1.1
-status: draft
-arch_ref: ARCH-001@0.1.1
+version: 0.1.2
+status: ready
+arch_ref: ARCH-001@0.1.2
 component: "DraftGenerator"
 depends_on: [TKT-001, TKT-003]
 blocks: []
 estimate: M
 assigned_executor: "glm-5.1"
 created: 2026-04-24
-updated: 2026-04-24
+updated: 2026-04-29
 ---
 
 # TKT-004: Draft generation service
@@ -32,12 +32,14 @@ Implement the DraftGenerator component that produces 1–3 channel-tailored Russ
 - Publishing — belongs to TKT-006@0.1.1
 
 ## 4. Inputs (Executor MUST read before writing code)
-- ARCH-001@0.1.1 §3.3 DraftGenerator (responsibility, inputs, outputs, LLM usage, failure modes, prompt-injection mitigation)
-- ARCH-001@0.1.1 §5 Data Model (`Draft`, `Channel`, `ClassifiedItem` retry metadata, `Metrics` schemas) + §8 Observability (`service.py` increments `drafts_generated` to the `Metrics` table)
-- ARCH-001@0.1.1 §6 External Interfaces (channel character limits)
+- ARCH-001@0.1.2 §3.3 DraftGenerator (responsibility, inputs, outputs, LLM usage, failure modes, prompt-injection mitigation)
+- ARCH-001@0.1.2 §5 Data Model (`Draft`, `Channel`, `ClassifiedItem` retry metadata, `Metrics` schemas) + §8 Observability (`service.py` increments `drafts_generated` to the `Metrics` table)
+- ARCH-001@0.1.2 §6 External Interfaces (channel character limits)
 - ADR-003@0.1.0 (direct HTTP calls for LLM)
+- ADR-005@0.1.0 (no-orchestrator decision — explains why third-party skill bundles like Aaron-SEO must NOT be loaded into runtime)
 - TKT-001@0.1.1 outputs: `db.py`, `models.py`, `config.py`
 - TKT-003@0.1.1 outputs: `llm/client.py`, `llm/providers.py`
+- **Inspiration source (read-only reference; do NOT import as code)**: Aaron-SEO content-quality checklists at `https://github.com/aaron-he-zhu/seo-geo-claude-skills`. Use the structural ideas (e.g. presence of headline/CTA/tone constraints) as input when designing the system prompt's content-quality assertions in `prompts.py`. Adapt to Russian SMM context. Per ADR-005@0.1.0 these skills are NOT a runtime dependency — ClawHub plugin runtime, Node.js, and OpenClaw Gateway are out of scope. Reference for prompt-engineering only.
 
 ## 5. Outputs (deliverables)
 - [ ] `src/smm_autopilot/drafting/__init__.py`
@@ -59,7 +61,8 @@ Implement the DraftGenerator component that produces 1–3 channel-tailored Russ
 ## 7. Constraints (hard rules for Executor)
 - Do NOT add new dependencies beyond those in TKT-001@0.1.1's `requirements.txt`
 - Do NOT modify `llm/client.py` or `llm/providers.py` — if changes are needed, return a question
-- Source text MUST be XML-escaped per ARCH-001@0.1.1 §9 before being wrapped in `<source_text>` delimiters in the prompt
+- Do NOT import or vendor any code from the Aaron-SEO skill bundles (per ADR-005@0.1.0). Inspiration only.
+- Source text MUST be XML-escaped per ARCH-001@0.1.2 §9 before being wrapped in `<source_text>` delimiters in the prompt
 - All generated text MUST be in Russian (prompt must enforce this)
 - All LLM responses MUST be parsed against a strict JSON schema
 - Attribution validation MUST use deterministic source-span/citation matching, not an additional NLI or LLM call
