@@ -416,3 +416,34 @@ async def test_classify_pending_keyword_fallback_with_sensitivity(db: Database) 
     assert rows[0]["classification_method"] == "keyword_fallback"
     assert rows[0]["is_sensitive"] == 1
     assert rows[0]["is_time_sensitive"] == 1
+
+
+@pytest.mark.asyncio
+async def test_classify_pending_recovers_from_crash_mid_transaction(db: Database) -> None:
+    source_id = await _seed_source(db)
+    raw_item_id = await _seed_raw_item(db, source_id, body="VPN circumvention update")
+
+    now = datetime.now(tz=timezone.utc).isoformat()
+    await db.execute_write(
+        "INSERT INTO classified_item "
+        "(raw_item_id, category, is_sensitive, is_time_sensitive, "
+        "relevance_score, classification_method, status, classified_at) "
+        "VALUES (?, ?, 0, 0, 0.5, 'llm', 'classified', ?)",
+        (raw_item_id, "circumvention", now),
+    )
+
+    llm_response = LLMResponse(
+        content='{"category": "circumvention", "relevance_score": 0.9}',
+        total_tokens=40,
+    )
+    llm_client = _make_llm_client(llm_response)
+
+    service = ClassifierService(db, llm_client)
+    await service.classify_pending()
+
+    classified_rows = await db.execute_read("SELECT * FROM classified_item")
+    assert len(classified_rows) == 1
+    assert classified_rows[0]["raw_item_id"] == raw_item_id
+
+    raw_rows = await db.execute_read("SELECT status FROM raw_item WHERE id = ?", (raw_item_id,))
+    assert raw_rows[0]["status"] == "processed"

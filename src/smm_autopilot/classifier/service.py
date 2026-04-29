@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import date, datetime, timezone
 
+import aiosqlite
 import structlog
 
 from smm_autopilot.classifier.prompts import TAXONOMY, SYSTEM_PROMPT, build_user_content
@@ -143,22 +144,30 @@ class ClassifierService:
         status = ClassifiedItemStatus.discarded if category == Category.other else ClassifiedItemStatus.classified
 
         now = _utcnow()
-        await self._db.execute_write(
-            "INSERT INTO classified_item "
-            "(raw_item_id, category, is_sensitive, is_time_sensitive, "
-            "relevance_score, classification_method, status, classified_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (
-                raw_item_id,
-                category.value,
-                int(is_sensitive),
-                int(is_time_sensitive),
-                relevance_score,
-                classification_method.value,
-                status.value,
-                now,
-            ),
-        )
+        try:
+            await self._db.execute_write(
+                "INSERT INTO classified_item "
+                "(raw_item_id, category, is_sensitive, is_time_sensitive, "
+                "relevance_score, classification_method, status, classified_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    raw_item_id,
+                    category.value,
+                    int(is_sensitive),
+                    int(is_time_sensitive),
+                    relevance_score,
+                    classification_method.value,
+                    status.value,
+                    now,
+                ),
+            )
+        except aiosqlite.IntegrityError:
+            existing = await self._db.execute_read(
+                "SELECT id FROM classified_item WHERE raw_item_id = ?",
+                (raw_item_id,),
+            )
+            if existing:
+                logger.info("classified_item_already_exists", raw_item_id=raw_item_id)
 
         await self._db.execute_write(
             "UPDATE raw_item SET status = 'processed' WHERE id = ?",
