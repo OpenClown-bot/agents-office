@@ -27,7 +27,7 @@ If `REPO_MISSING`:
   git clone https://github.com/OpenClown-bot/agents-office.git ~/repos/agents-office 2>&1
   ```
 - If clone succeeds (`REPO_OK` after retry) → continue to step 2.
-- If clone fails with 403 / "not authorized" / "repository not found" → this Devin account's GitHub integration does not have access. Continue to step 2 to acquire the PAT, then retry the clone using the PAT (see step 4).
+- If clone fails with 403 / "not authorized" / "repository not found" → this Devin account's GitHub integration does not have access. Continue to step 2 to acquire the PAT, then retry the clone using the PAT (see step 3).
 
 #### 2. GitHub PAT — `GITHUB_TOKEN_OPENCLOWN`
 
