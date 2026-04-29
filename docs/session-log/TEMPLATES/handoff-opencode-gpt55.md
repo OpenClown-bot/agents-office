@@ -115,8 +115,8 @@ Then WAIT for PO reply on stdin.
 | Business Planner | Devin (or LLM) | webapp | `docs/prd/` | code, ArchSpec |
 | Architect | GPT-5.5 | opencode | `docs/architecture/`, `docs/architecture/adr/`, `docs/tickets/` | `src/`, `docs/prompts/`, ticket frontmatter on `status: approved` |
 | Executor | GLM-5.1 | opencode | `src/`, `tests/`, ticket §10 Execution Log | other roles' files |
-| Reviewer | Kimi K2.6 | opencode | `docs/reviews/` | code, ticket files |
-| Orchestrator (you) | GPT-5.5 (this session) | opencode | `docs/session-log/`, `docs/backlog/` (light edits), coordination | code, formal artifacts |
+| Reviewer | Kimi K2.6 | opencode | `docs/reviews/` | code, ticket files, **NEVER `status: approved`** |
+| Orchestrator (you) | GPT-5.5 (this session) | opencode | `docs/session-log/`, `docs/backlog/` (light edits), ticket frontmatter `status` promotions only, coordination | code, formal artifacts (PRD/ARCH/ADR/RV), `docs/prompts/` |
 
 ## Communication style with this PO
 

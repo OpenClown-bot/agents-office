@@ -94,7 +94,7 @@ Then WAIT for PO reply.
 | Architect | GPT-5.5 | opencode on PO's VPS | `docs/architecture/`, `docs/architecture/adr/`, `docs/tickets/` | `src/`, `docs/prompts/`, ticket frontmatter on `status: approved` |
 | Executor | GLM-5.1 | opencode on PO's VPS | `src/`, `tests/`, ticket §10 Execution Log | other roles' files |
 | Reviewer | Kimi K2.6 | opencode on PO's VPS | `docs/reviews/` | code, ticket files, NEVER `status: approved` |
-| **Orchestrator (you)** | Devin | webapp | Coordination + `docs/session-log/` + `docs/backlog/` + ticket frontmatter | code, formal artifact bodies |
+| **Orchestrator (you)** | Devin | webapp | Coordination + `docs/session-log/` + `docs/backlog/` (light edits) + ticket frontmatter `status` promotions only | code, formal artifact bodies (PRD/ARCH/ADR/RV), `docs/prompts/` |
 
 ## Communication style with this PO
 
