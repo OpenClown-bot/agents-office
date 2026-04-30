@@ -2,10 +2,12 @@
 id: RV-CODE-004
 type: code_review
 target_pr: "https://github.com/OpenClown-bot/agents-office/pull/17"
-ticket_ref: TKT-004@0.1.2
+ticket_ref: TKT-004@0.1.3
 status: in_review
 reviewer_model: "kimi-k2.6"
 created: 2026-04-30
+updated: 2026-04-30
+verdict: pass
 ---
 
 # Code Review — PR #17 (TKT-004@0.1.2 Draft generation service)
@@ -102,3 +104,25 @@ Justification: Critical bug F-1 violates the ArchSpec retry contract (ARCH-001@0
 ## Verdict
 
 **fail** — Blocking critical bug F-1 (generation_retry_count over-increment per channel) violates the ArchSpec retry contract and would permanently fail classified items after a single LLM outage when multiple channels are active. Moderate bug F-2 (`TypeError` on NULL `char_limit`) is a straightforward runtime crash. Both must be fixed. Medium findings F-3 and F-4 should be addressed or explicitly deferred with follow-up tickets.
+
+---
+
+## Addendum: Re-review after fix iterations (2026-04-30)
+
+Original verdict: fail. After Architect mini-cycle (PR #20 → TKT-004@0.1.3) and three Executor fix iterations, all findings are addressed:
+
+- F-1: ✅ verified — `_generate_draft_for_channel` returns success/failure; `_mark_generation_failed` is called at most once per item per cycle, only when all channels fail. Test `test_multi_channel_failure_increments_once` at `tests/test_drafting.py:611` confirms.
+- F-2: ✅ verified — `int(channel.get("char_limit") or 0)` handles NULL safely. Test `test_null_char_limit_falls_back_to_zero` at `tests/test_drafting.py:669` confirms.
+- F-3: ✅ verified — per-variant attribution check in `validation.py`. Test `test_per_variant_attribution_one_unattributed_marks_unverified` at `tests/test_drafting.py:692` confirms.
+- F-4: ✅ verified — `UNIQUE(classified_item_id, channel_id)` added to draft table per TKT-004@0.1.3 §7 authorisation; `INSERT OR IGNORE` used in `service.py`. AC9 test `test_concurrent_generate_drafts_no_duplicate_rows` at `tests/test_drafting.py:704` passes.
+- F-5: ⏭ deferred to backlog per orchestrator PR #19 (merged). LOW.
+- F-6: ✅ verified — fullwidth Unicode `\uff1c` `\uff1e` escaped in `xml_escape_source`.
+- F-7: ✅ verified — PR #17 body now has `## Rollback` section per reviewer.md §B.11, references ARCH-001@0.1.2 §10 Deployment Workflow.
+- F-8: ⏭ deferred to backlog per orchestrator PR #19 (merged). LOW.
+- (New, surfaced by Devin Review on iter1) F-9: ✅ verified — early-skip in `_generate_draft_for_channel` prevents metrics inflation and wasted LLM calls. Tests `test_generate_drafts_skips_items_with_existing_drafts` at `tests/test_drafting.py:733` and `test_generate_drafts_partial_coverage_processes_remaining_channels` at `tests/test_drafting.py:770` confirm.
+- (New, surfaced by Devin Review on iter2) Write-zone violation: ✅ verified — §8 Definition of Done checkboxes reverted to `[ ]`.
+- (New, surfaced by Devin Review on iter2) Test helper bug: ✅ verified — `_make_draft_response` uses explicit `None`-check (`citations if citations is not None else [...]`).
+
+### Re-review verdict: pass
+
+All Acceptance Criteria from TKT-004@0.1.3 §6 (including AC9) are independently verified. All §7 Constraints honoured. ARCH-001@0.1.2 §3.3 retry contract correctly implemented.
