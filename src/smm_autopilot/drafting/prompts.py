@@ -31,6 +31,8 @@ SYSTEM_PROMPT = (
 def xml_escape_source(text: str) -> str:
     normalized = unicodedata.normalize("NFC", text)
     escaped = xml.sax.saxutils.escape(normalized)
+    escaped = escaped.replace("\uff1c", "&lt;")
+    escaped = escaped.replace("\uff1e", "&gt;")
     return escaped
 
 
