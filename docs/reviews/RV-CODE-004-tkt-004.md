@@ -7,10 +7,10 @@ status: in_review
 reviewer_model: "kimi-k2.6"
 created: 2026-04-30
 updated: 2026-04-30
-verdict: pass
+verdict: pass_with_changes
 ---
 
-# Code Review — PR #17 (TKT-004@0.1.2 Draft generation service)
+# Code Review — PR #17 (TKT-004@0.1.3 Draft generation service)
 
 ## Summary
 
@@ -101,7 +101,7 @@ Justification: Critical bug F-1 violates the ArchSpec retry contract (ARCH-001@0
 - **Input validation:** `_parse_draft_response` strips markdown code blocks and validates JSON schema, which is reasonable. No upper bound on parsed string length — a malicious LLM response could return multi-megabyte strings causing memory pressure.
 - **Observability:** Logs use `structlog` with `classified_item_id` and `channel_id`, which is good. No `trace_id` is carried from ingestion (ARCH-001@0.1.2 §8 mentions trace_id but it is absent from the DB schema and code). Log levels seem appropriate: warnings for failures, info for cycle completion.
 
-## Verdict
+## Verdict justification
 
 **fail** — Blocking critical bug F-1 (generation_retry_count over-increment per channel) violates the ArchSpec retry contract and would permanently fail classified items after a single LLM outage when multiple channels are active. Moderate bug F-2 (`TypeError` on NULL `char_limit`) is a straightforward runtime crash. Both must be fixed. Medium findings F-3 and F-4 should be addressed or explicitly deferred with follow-up tickets.
 
@@ -123,6 +123,8 @@ Original verdict: fail. After Architect mini-cycle (PR #20 → TKT-004@0.1.3) an
 - (New, surfaced by Devin Review on iter2) Write-zone violation: ✅ verified — §8 Definition of Done checkboxes reverted to `[ ]`.
 - (New, surfaced by Devin Review on iter2) Test helper bug: ✅ verified — `_make_draft_response` uses explicit `None`-check (`citations if citations is not None else [...]`).
 
-### Re-review verdict: pass
+### Re-review verdict: pass_with_changes
+
+Two LOW-severity findings (F-5, F-8) remain deferred to backlog (PR #19, merged) per PO decision; all blocking and medium findings are resolved.
 
 All Acceptance Criteria from TKT-004@0.1.3 §6 (including AC9) are independently verified. All §7 Constraints honoured. ARCH-001@0.1.2 §3.3 retry contract correctly implemented.
