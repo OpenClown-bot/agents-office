@@ -1,8 +1,8 @@
 ---
 id: TKT-004
 title: "Draft generation service"
-version: 0.1.2
-status: in_review
+version: 0.1.3
+status: ready
 arch_ref: ARCH-001@0.1.2
 component: "DraftGenerator"
 depends_on: [TKT-001, TKT-003]
@@ -10,7 +10,7 @@ blocks: []
 estimate: M
 assigned_executor: "glm-5.1"
 created: 2026-04-24
-updated: 2026-04-29
+updated: 2026-04-30
 ---
 
 # TKT-004: Draft generation service
@@ -18,12 +18,15 @@ updated: 2026-04-29
 ## 1. Goal (one sentence, no "and")
 Implement the DraftGenerator component that produces 1–3 channel-tailored Russian-language posts with exactly 2 textual variants (A/B) per post for each classified item, using the LLMClient from TKT-003@0.1.1.
 
+Revision 0.1.3 is a narrow review-remediation amendment for RV-CODE-004@in_review F-4. It relaxes this ticket's prior write-zone only enough to authorize the draft-table uniqueness hardening needed to make concurrent draft generation idempotent.
+
 ## 2. In Scope
 - `src/smm_autopilot/drafting/__init__.py`
 - `src/smm_autopilot/drafting/service.py` (main draft generation logic: iterate classified items × active channels, call LLM, persist drafts)
 - `src/smm_autopilot/drafting/prompts.py` (system prompt template for draft generation with XML-escaped `<source_text>` delimiter injection mitigation, channel format constraints)
 - `src/smm_autopilot/drafting/validation.py` (deterministic post-generation attribution check: source-span or citation-URL matching; flag UNVERIFIED if not)
 - `tests/test_drafting.py` (unit tests with mocked LLM responses)
+- `src/smm_autopilot/db.py` (only the `draft` table schema hardening required by RV-CODE-004@in_review F-4: add `UNIQUE(classified_item_id, channel_id)`; no unrelated schema, migration-system, connection, queue, or model changes)
 
 ## 3. NOT In Scope (Executor must NOT touch these — returns for review)
 - LLM client implementation — already done in TKT-003@0.1.1 (`llm/client.py`, `llm/providers.py`)
@@ -47,6 +50,7 @@ Implement the DraftGenerator component that produces 1–3 channel-tailored Russ
 - [ ] `src/smm_autopilot/drafting/prompts.py`
 - [ ] `src/smm_autopilot/drafting/validation.py`
 - [ ] `tests/test_drafting.py` (coverage ≥80% for drafting module)
+- [ ] `src/smm_autopilot/db.py` (only add `UNIQUE(classified_item_id, channel_id)` to the existing `draft` table schema)
 
 ## 6. Acceptance Criteria (machine-checkable)
 - [ ] `pytest tests/test_drafting.py -v` passes
@@ -57,6 +61,7 @@ Implement the DraftGenerator component that produces 1–3 channel-tailored Russ
 - [ ] Given an adversarial suite with ≥5 source-text injection cases (nested `<source_text>` delimiters, role-play instructions, unicode delimiter homoglyphs, multi-turn leakage requests, and closing-tag injection), when each case is passed to the draft prompt, then the output is valid draft JSON and no injected instruction is followed
 - [ ] `ruff check src/smm_autopilot/drafting/ tests/test_drafting.py` clean
 - [ ] `mypy src/smm_autopilot/drafting/ --strict` clean
+- [ ] Given two concurrent `generate_drafts()` calls for the same classified item and active channel, when both calls attempt to persist a draft, then at most one `draft` row exists for `(classified_item_id, channel_id)` and no uncaught database integrity exception aborts the generation cycle
 
 ## 7. Constraints (hard rules for Executor)
 - Do NOT add new dependencies beyond those in TKT-001@0.1.1's `requirements.txt`
@@ -67,6 +72,8 @@ Implement the DraftGenerator component that produces 1–3 channel-tailored Russ
 - All LLM responses MUST be parsed against a strict JSON schema
 - Attribution validation MUST use deterministic source-span/citation matching, not an additional NLI or LLM call
 - All SQL parameterised (no f-string SQL)
+- To satisfy RV-CODE-004@in_review F-4, `src/smm_autopilot/db.py` MAY be edited only to add `UNIQUE(classified_item_id, channel_id)` to the `draft` table; the draft insertion path in `service.py` MUST use `INSERT OR IGNORE` or an equivalent single-statement/transactional conflict-safe write so the database constraint, not a prior read check, is the concurrency authority
+- Do NOT make broader TKT-001@0.1.1 schema or migration-system changes while applying the F-4 amendment
 
 ## 8. Definition of Done
 - [x] All Acceptance Criteria pass
