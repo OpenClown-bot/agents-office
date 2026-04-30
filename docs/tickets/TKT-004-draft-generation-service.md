@@ -96,6 +96,13 @@ Revision 0.1.3 is a narrow review-remediation amendment for RV-CODE-004@in_revie
 - 2026-04-29: Decision: min_overlap=1 for attribution validation — cross-language drafts (Russian) vs source (English) share few exact word matches; a single shared keyword (e.g. "vpn") suffices for deterministic attribution
 - 2026-04-29: Decision: reused LLMClient.classify() for draft generation (same system/user prompt pattern as classification) — no new method needed on LLMClient, per constraint
 - 2026-04-29: Status set to in_review
+- 2026-04-30: F-4 schema amendment landed via TKT-004@0.1.3 (PR #20). Beginning fix iteration for F-1, F-2, F-3, F-4 (db.py UNIQUE + INSERT OR IGNORE), F-6, F-7. RV-CODE-004@in_review F-5 and F-8 deferred to backlog per orchestrator PR #19.
+- 2026-04-30: F-1 fix — restructured generate_drafts to collect channel success/failure per item; _generate_draft_for_channel now returns bool; _mark_generation_failed called at most once per item per cycle (only when all channels fail, partial success is acceptable per ARCH-001@0.1.2 §3.3). Tests: test_multi_channel_failure_increments_once, test_partial_success_does_not_mark_failed.
+- 2026-04-30: F-2 fix — changed int(channel.get("char_limit", 0)) or 0 to int(channel.get("char_limit") or 0) to handle NULL char_limit without TypeError. Test: test_null_char_limit_falls_back_to_zero.
+- 2026-04-30: F-3 fix — split attribution validation to per-variant; each variant must independently contain a citation URL or pass source-span overlap. Test: test_per_variant_attribution_one_unattributed_marks_unverified.
+- 2026-04-30: F-4 fix — added UNIQUE(classified_item_id, channel_id) to draft table in db.py per TKT-004@0.1.3 §2/§5/§7; replaced SELECT-then-INSERT dedup with INSERT OR IGNORE (single atomic SQL statement per TKT-004@0.1.3 §7 "database constraint is the concurrency authority"). Test: test_concurrent_generate_drafts_no_duplicate_rows (fresh in-memory DB per AC9). Note: existing dev DBs with pre-UNIQUE schema will re-create on next init since IF NOT EXISTS won't migrate — no migration scripts added per constraint.
+- 2026-04-30: F-6 fix — extended xml_escape_source to replace fullwidth \uff1c and \uff1e with &lt; and &gt;. Extended test_prompt_injection_mitigation with explicit fullwidth-homoglyph case. Test: test_xml_escape_source_fullwidth_homoglyphs.
+- 2026-04-30: All 43 tests pass, ruff clean, mypy --strict clean, validate_docs 0 failed.
 
 ---
 
