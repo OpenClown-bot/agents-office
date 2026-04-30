@@ -42,10 +42,8 @@ def validate_attribution(
     source_body: str,
     citations: list[str],
 ) -> bool:
-    combined = f"{variant_a_text} {variant_b_text}"
-    has_cite = _has_citation(combined, citations)
-    if has_cite:
-        return True
-    has_span_a = _source_span_overlap(variant_a_text, source_title, source_body)
-    has_span_b = _source_span_overlap(variant_b_text, source_title, source_body)
-    return has_span_a and has_span_b
+    def _variant_ok(text: str) -> bool:
+        if _has_citation(text, citations):
+            return True
+        return _source_span_overlap(text, source_title, source_body)
+    return _variant_ok(variant_a_text) and _variant_ok(variant_b_text)
