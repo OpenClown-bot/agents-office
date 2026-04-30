@@ -80,7 +80,7 @@ Implement the DraftGenerator component that produces 1–3 channel-tailored Russ
 
 - 2026-04-29: Branch `exec/TKT-004-draft-generation-service` created, status set to in_progress
 - 2026-04-29: Implemented `src/smm_autopilot/drafting/__init__.py` — lazy-import pattern matching classifier
-- 2026-04-29: Implemented `src/smm_autopilot/drafting/prompts.py` — system prompt with XML-escaped source_text delimiters, injection mitigation, HEADLINE/CTA/TONE/ATTRIBUTION checklist (inspired by Aaron-SEO structural patterns per ADR-005), Russian-only enforcement, char_limit support
+- 2026-04-29: Implemented `src/smm_autopilot/drafting/prompts.py` — system prompt with XML-escaped source_text delimiters, injection mitigation, HEADLINE/CTA/TONE/ATTRIBUTION checklist (inspired by Aaron-SEO structural patterns per ADR-005@0.1.0), Russian-only enforcement, char_limit support
 - 2026-04-29: Implemented `src/smm_autopilot/drafting/validation.py` — deterministic attribution validation via source-span keyword overlap + citation-URL matching; min_overlap=1 for cross-language (Russian draft vs English source) keyword matching
 - 2026-04-29: Implemented `src/smm_autopilot/drafting/service.py` — DraftGeneratorService: iterates classified items × active channels, calls LLMClient.classify, parses JSON response, enforces char_limit, validates attribution (ready/unverified), persists drafts, handles retry with generation_failed + retry counters, increments metrics
 - 2026-04-29: Implemented `tests/test_drafting.py` — 36 tests covering all 7 ACs
