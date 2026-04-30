@@ -119,6 +119,13 @@ class DraftGeneratorService:
         channel_id: int = int(channel["id"])  # type: ignore[call-overload]
         char_limit: int = int(channel.get("char_limit") or 0)  # type: ignore[call-overload]
 
+        existing = await self._db.execute_read(
+            "SELECT 1 FROM draft WHERE classified_item_id = ? AND channel_id = ?",
+            (classified_item_id, channel_id),
+        )
+        if existing:
+            return True
+
         title: str = item.get("title") or ""  # type: ignore[assignment]
         body: str = item["body"]  # type: ignore[assignment]
         source_url: str = item.get("url") or ""  # type: ignore[assignment]
@@ -208,7 +215,12 @@ class DraftGeneratorService:
             ),
         )
 
-        await self._increment_drafts_generated()
+        inserted = await self._db.execute_read(
+            "SELECT 1 FROM draft WHERE classified_item_id = ? AND channel_id = ? AND created_at = ?",
+            (classified_item_id, channel_id, now),
+        )
+        if inserted:
+            await self._increment_drafts_generated()
         return True
 
     async def _mark_generation_failed(

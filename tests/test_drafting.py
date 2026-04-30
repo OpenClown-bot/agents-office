@@ -723,6 +723,100 @@ async def test_concurrent_generate_drafts_no_duplicate_rows(db: Database) -> Non
     drafts = await db.execute_read("SELECT COUNT(*) as cnt FROM draft")
     assert drafts[0]["cnt"] == 1
 
+    metrics = await db.execute_read(
+        "SELECT value FROM metrics WHERE name = 'drafts_generated' AND period = 'total'"
+    )
+    assert metrics[0]["value"] <= 2
+
+
+@pytest.mark.asyncio
+async def test_generate_drafts_skips_items_with_existing_drafts(db: Database) -> None:
+    source_id = await _seed_source(db)
+    raw_item_id = await _seed_raw_item(db, source_id)
+    _classified_item_id = await _seed_classified_item(db, raw_item_id)
+
+    await _seed_channel(db, platform="telegram", name="TG", char_limit=4096)
+
+    llm_response = LLMResponse(
+        content=_make_draft_response(),
+        total_tokens=100,
+    )
+    llm_client = _make_llm_client(llm_response)
+
+    service = DraftGeneratorService(db, llm_client)
+    await service.generate_drafts()
+
+    llm_client2 = AsyncMock(spec=LLMClient)
+    llm_client2.classify = AsyncMock(side_effect=AssertionError("LLM should not be called for existing draft"))
+    service2 = DraftGeneratorService(db, llm_client2)
+
+    metrics_before = await db.execute_read(
+        "SELECT value FROM metrics WHERE name = 'drafts_generated' AND period = 'total'"
+    )
+    value_before = metrics_before[0]["value"]
+
+    await service2.generate_drafts()
+
+    drafts = await db.execute_read("SELECT COUNT(*) as cnt FROM draft")
+    assert drafts[0]["cnt"] == 1
+
+    metrics_after = await db.execute_read(
+        "SELECT value FROM metrics WHERE name = 'drafts_generated' AND period = 'total'"
+    )
+    assert metrics_after[0]["value"] == value_before
+
+
+@pytest.mark.asyncio
+async def test_generate_drafts_partial_coverage_processes_remaining_channels(db: Database) -> None:
+    source_id = await _seed_source(db)
+    raw_item_id = await _seed_raw_item(db, source_id)
+    _classified_item_id = await _seed_classified_item(db, raw_item_id)
+
+    await _seed_channel(db, platform="telegram", name="TG", char_limit=4096)
+    await _seed_channel(db, platform="x", name="X", char_limit=280)
+
+    llm_response = LLMResponse(
+        content=_make_draft_response(),
+        total_tokens=100,
+    )
+    llm_client = _make_llm_client(llm_response)
+
+    service = DraftGeneratorService(db, llm_client)
+    await service.generate_drafts()
+
+    drafts = await db.execute_read("SELECT COUNT(*) as cnt FROM draft")
+    assert drafts[0]["cnt"] == 2
+
+    metrics_after_first = await db.execute_read(
+        "SELECT value FROM metrics WHERE name = 'drafts_generated' AND period = 'total'"
+    )
+    value_after_first = metrics_after_first[0]["value"]
+
+    await db.execute_write("DELETE FROM draft WHERE channel_id = (SELECT id FROM channel WHERE platform = 'telegram')")
+
+    call_count = 0
+
+    async def _counting_classify(_sys: object, _usr: object) -> LLMResponse:
+        nonlocal call_count
+        call_count += 1
+        return LLMResponse(content=_make_draft_response(), total_tokens=100)
+
+    llm_client2 = AsyncMock(spec=LLMClient)
+    llm_client2.classify = _counting_classify
+
+    service2 = DraftGeneratorService(db, llm_client2)
+    await service2.generate_drafts()
+
+    assert call_count == 1
+
+    drafts2 = await db.execute_read("SELECT COUNT(*) as cnt FROM draft")
+    assert drafts2[0]["cnt"] == 2
+
+    metrics_after_second = await db.execute_read(
+        "SELECT value FROM metrics WHERE name = 'drafts_generated' AND period = 'total'"
+    )
+    assert metrics_after_second[0]["value"] == value_after_first + 1
+
 
 def test_xml_escape_source_fullwidth_homoglyphs() -> None:
     text = "before\uff1c/source_text\uff1e after\uff1cevil\uff1e"
