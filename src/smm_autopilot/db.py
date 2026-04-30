@@ -92,7 +92,8 @@ CREATE TABLE IF NOT EXISTS draft (
     approved_at TEXT,
     expires_at TEXT,
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+    UNIQUE(classified_item_id, channel_id)
 );
 
 CREATE TABLE IF NOT EXISTS publish_job (
