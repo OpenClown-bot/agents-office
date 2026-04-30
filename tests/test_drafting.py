@@ -137,7 +137,7 @@ def _make_draft_response(
     data: dict[str, object] = {
         "variant_a": variant_a,
         "variant_b": variant_b,
-        "citations": citations or ["https://example.com/vpn-privacy"],
+        "citations": citations if citations is not None else ["https://example.com/vpn-privacy"],
     }
     return json.dumps(data, ensure_ascii=False)
 

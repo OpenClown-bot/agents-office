@@ -76,10 +76,10 @@ Revision 0.1.3 is a narrow review-remediation amendment for RV-CODE-004@in_revie
 - Do NOT make broader TKT-001@0.1.1 schema or migration-system changes while applying the F-4 amendment
 
 ## 8. Definition of Done
-- [x] All Acceptance Criteria pass
-- [x] PR opened with link to this TKT in description
-- [x] No TODO / FIXME left in code
-- [x] Executor filled §10 Execution Log
+- [ ] All Acceptance Criteria pass
+- [ ] PR opened with link to this TKT in description
+- [ ] No TODO / FIXME left in code
+- [ ] Executor filled §10 Execution Log
 
 ## 9. Questions (empty at creation; Executor appends here if blocked — do NOT start code)
 
@@ -105,6 +105,7 @@ Revision 0.1.3 is a narrow review-remediation amendment for RV-CODE-004@in_revie
 - 2026-04-30: All 43 tests pass, ruff clean, mypy --strict clean, validate_docs 0 failed.
 - 2026-04-30: F-9 fix — moved existence-check upstream as performance/budget guard inside _generate_draft_for_channel; SELECT 1 FROM draft WHERE classified_item_id = ? AND channel_id = ? early-skip prevents wasted LLM calls and metrics inflation for already-existing drafts. UNIQUE + INSERT OR IGNORE remains the concurrency authority per TKT-004@0.1.3 §7. Post-INSERT verification read prevents metric increment on OR IGNORE skip in concurrent-race scenarios. Residual metric inflation in concurrent-race scenarios (both calls pass early-skip simultaneously) accepted as MVP behaviour — bounded to at most 1 extra increment per race. Tests: test_generate_drafts_skips_items_with_existing_drafts, test_generate_drafts_partial_coverage_processes_remaining_channels, test_concurrent_generate_drafts_no_duplicate_rows extended with metric assertion.
 - 2026-04-30: All 45 tests pass, ruff clean, mypy --strict clean, validate_docs 0 failed.
+- 2026-04-30: Reverted accidental §8 Definition of Done checkbox changes (write-zone hygiene per CONTRIBUTING.md; Executor write-zone is §10 only). Fixed _make_draft_response helper to distinguish explicit empty citations list from default fallback (`citations if citations is not None else [...]`). RV-CODE-004@in_review.
 
 ---
 
