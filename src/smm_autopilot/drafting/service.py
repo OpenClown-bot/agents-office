@@ -96,8 +96,17 @@ class DraftGeneratorService:
             return
 
         for item in items:
+            any_success = False
+            any_failure = False
             for channel in channels:
-                await self._generate_draft_for_channel(item, channel)
+                success = await self._generate_draft_for_channel(item, channel)
+                if success:
+                    any_success = True
+                else:
+                    any_failure = True
+            if any_failure and not any_success:
+                classified_item_id = int(item["id"])
+                await self._mark_generation_failed(classified_item_id, "all_channels_failed")
 
         logger.info("draft_generator_cycle_complete", item_count=len(items))
 
@@ -105,17 +114,10 @@ class DraftGeneratorService:
         self,
         item: dict[str, object],
         channel: dict[str, object],
-    ) -> None:
+    ) -> bool:
         classified_item_id: int = int(item["id"])  # type: ignore[call-overload]
         channel_id: int = int(channel["id"])  # type: ignore[call-overload]
-        char_limit: int = int(channel.get("char_limit", 0)) or 0  # type: ignore[call-overload]
-
-        existing = await self._db.execute_read(
-            "SELECT id FROM draft WHERE classified_item_id = ? AND channel_id = ?",
-            (classified_item_id, channel_id),
-        )
-        if existing:
-            return
+        char_limit: int = int(channel.get("char_limit") or 0)  # type: ignore[call-overload]
 
         title: str = item.get("title") or ""  # type: ignore[assignment]
         body: str = item["body"]  # type: ignore[assignment]
@@ -159,8 +161,7 @@ class DraftGeneratorService:
                     await asyncio.sleep(_DRAFT_RETRY_BACKOFF_SECONDS)
 
         if parsed is None:
-            await self._mark_generation_failed(classified_item_id, last_error)
-            return
+            return False
 
         variant_a: str = str(parsed["variant_a"])
         variant_b: str = str(parsed["variant_b"])
@@ -190,7 +191,7 @@ class DraftGeneratorService:
         now = _utcnow()
 
         await self._db.execute_write(
-            "INSERT INTO draft "
+            "INSERT OR IGNORE INTO draft "
             "(classified_item_id, channel_id, variant_a_text, variant_b_text, "
             "image_url, citations, status, is_sensitive, created_at, updated_at) "
             "VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)",
@@ -208,6 +209,7 @@ class DraftGeneratorService:
         )
 
         await self._increment_drafts_generated()
+        return True
 
     async def _mark_generation_failed(
         self,
